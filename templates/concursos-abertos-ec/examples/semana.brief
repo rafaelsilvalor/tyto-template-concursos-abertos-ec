@@ -1,0 +1,39 @@
+---
+template: concursos-abertos-ec
+formats: [grid]
+---
+// A week of open exams in invented copy: invented bodies, exam boards and numbers. The crests
+// are neutral stand-ins; a real brief points at each institution's own.
+
+::lamina {capa}
+  Principais concursos abertos com inscrições
+  em Novembro
+
+::lamina
+  Área Policial
+::brasao ./brasao-escudo.png
+  Concurso: PC QX
+  Banca: Quintex
+  Período de inscrições: até 13/11
+  Data da prova: 06/12
+  Vagas: 750
+  Salário: R$ 6.433,06 a R$ 16.495,67
+::brasao ./brasao-selo.png
+  Concurso: PC Vale Alto
+  Banca: Ômegas
+  Período de inscrições: 03/11 a 21/11
+  Data da prova: 13/12
+  Vagas: 150 + 150 CR
+  Salário: R$ 5.318,63
+
+::lamina
+::brasao ./brasao-escudo.png
+  Concurso: GCM Vale Norte (QX)
+  Banca: Instituto Cetrix
+  Período de inscrições: até 13/11
+  Data da prova: 06/12
+  Vagas: 750
+  Salário: R$ 6.433,06 a R$ 16.495,67
+
+::lamina {contracapa}
+  Comente **PALAVRA** e receba o link do nosso blog com todas as vagas abertas.

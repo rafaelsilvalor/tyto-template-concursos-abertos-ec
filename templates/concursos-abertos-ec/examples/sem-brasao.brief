@@ -1,0 +1,35 @@
+---
+template: concursos-abertos-ec
+formats: [grid]
+---
+// The same kinds of slide with no crest at all: each exam draws its name where the crest
+// would sit. Invented copy. The cover and the sign-off are empty, so they draw the template's
+// default words.
+
+::lamina {capa}
+
+::lamina
+  Tribunais, Defensorias, Procuradorias e MP
+  Concurso: TRZ Norte – Analista
+  Banca: Fundex
+  Período de inscrições: 17/11 a 14/12
+  Data da prova: 18/01
+  Vagas: 2 + CR
+  Salário inicial: R$ 23.264,47
+  Concurso: Câmara de Vale Alto (QX)
+  Banca: Quintex
+  Período de inscrições: até 21/11
+  Data da prova: 08 e 29/12
+  Vagas: 68 + CR
+  Salário: R$ 3.371,37 a R$ 7.241,14
+
+::lamina
+  Outras Oportunidades
+  Concurso: Corex
+  Banca: Ômegas
+  Período de inscrições: até 24/11
+  Data da prova: 18/01
+  Vagas: 39 + CR
+  Salário: R$ 4.362,02 a R$ 16.990,33
+
+::lamina {contracapa}

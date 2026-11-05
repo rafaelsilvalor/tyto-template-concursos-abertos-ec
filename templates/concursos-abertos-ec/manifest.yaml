@@ -1,0 +1,47 @@
+name: concursos-abertos-ec
+version: 0.1.0
+brand: roxo
+description: The week's open exams as a 1080×1350 carousel — a cover, area slides with one or two exams each (an optional crest, the exam's name and its facts) and a sign-off with a boxed word.
+# Every face the slides set is declared, so the plugin's process can measure them (Tyto ADR 0048).
+# CircularXX is licensed: it crosses only under the manifest's `font:CircularXX`, approved at
+# install. `tests/faces.test.ts` holds this list equal to the faces the examples draw.
+faces:
+  - { family: CircularXX, weight: 100 }
+  - { family: CircularXX, weight: 300 }
+  - { family: CircularXX, weight: 500 }
+  - { family: CircularXX, weight: 900 }
+fonts:
+  CircularXX: { alternatives: [Inter, Manrope, DM Sans] }
+formats: [grid]
+slots:
+  # An exam's crest, contained in the box beside (or over) its name. After the slide's
+  # `::lamina`, `::brasao ./crest.png` before the exam's `Concurso:` line; it belongs to the exam
+  # written under it. Optional: an exam without one draws its name where the crest would sit.
+  brasao: { type: image, per: lamina, multiple: true }
+  # The house's seal art, 1080 × 140, glued to the foot of the last slide (TYTO-201): the
+  # signature rises by its band. In the frontmatter: `selo: ./selo.png`.
+  selo: { type: image }
+  # One slide each. The cover is `::lamina {capa}`: every line but the last is the title, the
+  # last is set on the band. The sign-off is `::lamina {contracapa}`: one paragraph whose
+  # `**word**` is boxed. Every other `::lamina` is an area slide: an optional first line with
+  # no `:` is the area's title; `Concurso: name` starts an exam, and every `Label: value` under
+  # it is one of its facts. One exam is drawn large and centred, two in rows; a third is not
+  # drawn and reported. Empty `{capa}` and `{contracapa}` draw the template's default words.
+  # `max` counts slides: 20 is Instagram's carousel limit.
+  lamina: { type: rich-text, repeat: true, min: 1, max: 20 }
+adjustments:
+  capa: { type: flag, applies: [lamina] }
+  contracapa: { type: flag, applies: [lamina] }
+# What a configuration may change (Tyto ADR 0153): the colours. Each default is the reference
+# art's, and `tests/values.test.ts` pins them equal to the ones the code falls back to.
+values:
+  paper: { type: color, default: '#ffffff' }
+  # Titles, labels, the exams' names, the rule between two exams, the cover's band, the
+  # sign-off's box, the logo and the signature.
+  ink: { type: color, default: '#460292' }
+  # A fact's value, the word "Concurso" and the sign-off's paragraph.
+  body-ink: { type: color, default: '#646464' }
+  # The cover's band line and the sign-off's boxed word.
+  on-ink: { type: color, default: '#ffffff' }
+  # The arrow to the next slide.
+  arrow-ink: { type: color, default: '#7228b1' }
