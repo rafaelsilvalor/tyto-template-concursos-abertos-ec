@@ -63,7 +63,6 @@ type ColorName = keyof typeof COLOR_DEFAULTS;
 type Ink = (name: ColorName) => string;
 
 const FACE = { family: 'CircularXX', source: 'system' } as const;
-const THIN = 100;
 const LIGHT = 300;
 const MEDIUM = 500;
 const BLACK = 900;
@@ -97,12 +96,12 @@ export const COVER = {
   lineHeight: 115.2 / 96,
   width: 900,
   /** The middle of the block, from the first capitals to the band's foot. */
-  centre: 666.5,
+  centre: 669.5,
   /** The band reaches this far over the capitals of its line and under its baseline. */
-  bandOver: 10,
-  bandUnder: 20,
+  bandOver: 13,
+  bandUnder: 18,
   /** The band is the block's widest line, this much narrower on each side. */
-  bandInset: 6,
+  bandInset: 10,
 } as const;
 
 /** An area slide's title: Medium 51 px, centred, its last baseline where the reference sets it. */
@@ -112,8 +111,12 @@ export const AREA_TITLE = { size: 51.06, lineHeight: 1.25, width: 640, baseline:
 export const ROW = {
   /** The middle of each row; the rule sits between them. */
   centres: [592, 998],
-  rule: { x: 159, y: 793.5, w: 764, h: 1.5 },
-  crest: { x: 135, w: 203, h: 167 },
+  rule: { x: 159, y: 794, w: 764, h: 1 },
+  /**
+   * The crest's box, and the height the crest is drawn at inside it, centred: the reference's
+   * crests sit 156 to 159 px tall in a 167 px box.
+   */
+  crest: { x: 135, w: 203, h: 167, drawn: 158 },
   /** The name's column, centred under the crest. */
   name: { centre: 236.5, width: 230, size: 32, lineHeight: 38 / 32, gap: 31.5 },
   facts: { x: 419, width: 576, size: 32, lineHeight: 55.68 / 32 },
@@ -121,9 +124,10 @@ export const ROW = {
 
 /** One exam alone on its slide: everything stacked and centred, larger. */
 export const SINGLE = {
-  centre: 667.6,
-  crest: { w: 251, h: 207 },
-  name: { width: 300, size: 39.9, lineHeight: 48 / 39.9, gap: 40 },
+  centre: 669.6,
+  /** The reference's crest is 185 px tall in a 207 px box. */
+  crest: { w: 251, h: 207, drawn: 185 },
+  name: { width: 260, size: 39.9, lineHeight: 48 / 39.9, gap: 40 },
   /** From the name's last baseline to the facts' first capitals. */
   factsGap: 87,
   facts: { width: 600, size: 35.59, lineHeight: 61.92 / 35.59 },
@@ -133,17 +137,25 @@ export const SINGLE = {
 export const SIGN_OFF = {
   size: 57.2,
   lineHeight: 85.79 / 57.2,
-  width: 802,
-  centre: 674,
-  box: { padX: 21, over: 14, under: 16 },
+  /**
+   * The reference's text box is 802 px; its lines measure up to 801 px in Photoshop and a few
+   * more in Tyto, so the paragraph wraps at 840 to break where the reference breaks.
+   */
+  width: 840,
+  centre: 676,
+  box: { padX: 17, over: 16, under: 15 },
 } as const;
 
-/** The signature: Thin 24 px, letter spacing 0.4 em, centred, its capitals 1271 px down. */
+/**
+ * The signature: 24 px, letter spacing 0.4 em, centred, its capitals 1271 px down. The
+ * reference sets it in CircularXX Thin, a weight Tyto does not resolve (`W_FONT_UNAVAILABLE`,
+ * measured 2026-11-05), so it is Light, as the house's other templates set theirs.
+ */
 const SIGNATURE = { size: 24, capTop: 1271, letterSpacing: 9.6 } as const;
 /** The logo, as the reference places the owl: 63 px tall, 85 px from the left. */
 const LOGO = { x: 85, y: 67, height: 63 } as const;
 /** The arrow: a shaft and a narrow head, the reference's box. */
-const ARROW = { x: 798, y: 1269, w: 185, h: 26, shaft: { top: 9, h: 8 }, head: 15 } as const;
+const ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: { top: 9, h: 8 }, head: 15 } as const;
 /** The lowest an exam's content may reach: over the signature. */
 const CONTENT_BOTTOM = 1240;
 
@@ -177,7 +189,7 @@ export const build: TemplateBuild = (context: TemplateContext) => {
         x: 0,
         capTop: SIGNATURE.capTop - lift,
         size: SIGNATURE.size,
-        weight: THIN,
+        weight: LIGHT,
         color: ink('ink'),
         width: SLIDE_WIDTH,
         align: 'center',
@@ -587,7 +599,7 @@ function examRow(context: TemplateContext, exam: Exam, centre: number, ink: Ink)
 
   const nodes: NodeDraft[] = [];
   if (exam.crest !== undefined) {
-    nodes.push(crest(exam.crest, ROW.crest.x, columnTop, ROW.crest.w, ROW.crest.h));
+    nodes.push(crest(exam.crest, { x: ROW.crest.x, y: columnTop }, ROW.crest));
   }
   nodes.push(nameText(exam.name, { ...namePlaced, capTop: columnTop + crestHeight }, ink));
   if (runs.length > 0) nodes.push(textRuns('fatos', runs, { ...factsPlaced, capTop: factsTop }));
@@ -635,9 +647,7 @@ function singleExam(context: TemplateContext, exam: Exam, ink: Ink, lift: number
 
   const nodes: NodeDraft[] = [];
   if (exam.crest !== undefined) {
-    nodes.push(
-      crest(exam.crest, CENTRE_X - SINGLE.crest.w / 2, top, SINGLE.crest.w, SINGLE.crest.h),
-    );
+    nodes.push(crest(exam.crest, { x: CENTRE_X - SINGLE.crest.w / 2, y: top }, SINGLE.crest));
   }
   const nameTop = top + crestHeight;
   nodes.push(nameText(exam.name, { ...namePlaced, capTop: nameTop }, ink));
@@ -659,9 +669,23 @@ function singleExam(context: TemplateContext, exam: Exam, ink: Ink, lift: number
   return nodes;
 }
 
-/** A crest, contained in its box and centred in it, whatever its own proportions. */
-function crest(asset: AssetRef, x: number, y: number, w: number, h: number): NodeDraft {
-  return image({ name: 'brasao', asset, size: { w, h }, fit: 'contain', transform: { x, y } });
+/**
+ * A crest, contained in its box at the height the reference draws crests, centred in the box
+ * whatever its own proportions.
+ */
+function crest(
+  asset: AssetRef,
+  origin: { readonly x: number; readonly y: number },
+  box: { readonly w: number; readonly h: number; readonly drawn: number },
+): NodeDraft {
+  const margin = (box.h - box.drawn) / 2;
+  return image({
+    name: 'brasao',
+    asset,
+    size: { w: box.w, h: box.drawn },
+    fit: 'contain',
+    transform: { x: origin.x, y: origin.y + margin },
+  });
 }
 
 /* ------------------------------------------------------------------------- the marks -- */

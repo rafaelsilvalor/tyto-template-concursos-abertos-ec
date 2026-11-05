@@ -6,7 +6,6 @@ description: The week's open exams as a 1080×1350 carousel — a cover, area sl
 # CircularXX is licensed: it crosses only under the manifest's `font:CircularXX`, approved at
 # install. `tests/faces.test.ts` holds this list equal to the faces the examples draw.
 faces:
-  - { family: CircularXX, weight: 100 }
   - { family: CircularXX, weight: 300 }
   - { family: CircularXX, weight: 500 }
   - { family: CircularXX, weight: 900 }
