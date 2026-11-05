@@ -22240,6 +22240,8 @@ var ROW = {
   /** The middle of each row; the rule sits between them. */
   centres: [592, 998],
   rule: { x: 159, y: 794, w: 764, h: 1 },
+  /** The closest the upper row's words come to the rule. */
+  ruleClearance: 16,
   /**
    * The crest's box, and the height the crest is drawn at inside it, centred: the reference's
    * crests sit 156 to 159 px tall in a 167 px box.
@@ -22532,14 +22534,14 @@ function areaSlide(context, ink, lift) {
     return nodes;
   }
   nodes.push(
-    ...examRow(context, first, ROW.centres[0], ink),
+    ...examRow(context, first, ROW.centres[0], ROW.rule.y - ROW.ruleClearance, ink),
     rect({
       name: "divisoria",
       size: { w: ROW.rule.w, h: ROW.rule.h },
       fill: solid(ink("ink")),
       transform: { x: ROW.rule.x, y: ROW.rule.y }
     }),
-    ...examRow(context, second, ROW.centres[1], ink)
+    ...examRow(context, second, ROW.centres[1], CONTENT_BOTTOM - lift, ink)
   );
   if (rest.length > 0) {
     context.report({
@@ -22586,7 +22588,7 @@ function factRuns(facts, size, ink) {
     ];
   });
 }
-function examRow(context, exam, centre, ink) {
+function examRow(context, exam, centre, bottom, ink) {
   const name = ROW.name;
   const namePlaced = {
     x: name.centre - name.width / 2,
@@ -22630,6 +22632,11 @@ function examRow(context, exam, centre, ink) {
   }
   nodes.push(nameText(exam.name, { ...namePlaced, capTop: columnTop + crestHeight }, ink));
   if (runs.length > 0) nodes.push(textRuns("fatos", runs, { ...factsPlaced, capTop: factsTop }));
+  reportOverflow(
+    context.report,
+    Math.max(factsTop + factsHeight, columnTop + columnHeight),
+    bottom
+  );
   return nodes;
 }
 function singleExam(context, exam, ink, lift) {

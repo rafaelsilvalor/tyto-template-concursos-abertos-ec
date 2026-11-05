@@ -112,6 +112,8 @@ export const ROW = {
   /** The middle of each row; the rule sits between them. */
   centres: [592, 998],
   rule: { x: 159, y: 794, w: 764, h: 1 },
+  /** The closest the upper row's words come to the rule. */
+  ruleClearance: 16,
   /**
    * The crest's box, and the height the crest is drawn at inside it, centred: the reference's
    * crests sit 156 to 159 px tall in a 167 px box.
@@ -490,14 +492,14 @@ function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[
     return nodes;
   }
   nodes.push(
-    ...examRow(context, first, ROW.centres[0], ink),
+    ...examRow(context, first, ROW.centres[0], ROW.rule.y - ROW.ruleClearance, ink),
     rect({
       name: 'divisoria',
       size: { w: ROW.rule.w, h: ROW.rule.h },
       fill: solid(ink('ink')),
       transform: { x: ROW.rule.x, y: ROW.rule.y },
     }),
-    ...examRow(context, second, ROW.centres[1], ink),
+    ...examRow(context, second, ROW.centres[1], CONTENT_BOTTOM - lift, ink),
   );
   // A slide holds two exams: a third and later are not drawn, and the author is told.
   if (rest.length > 0) {
@@ -556,8 +558,17 @@ function factRuns(facts: readonly RichText[], size: number, ink: Ink): TextRun[]
   });
 }
 
-/** One exam row: the crest and name column centred against the facts, on the row's middle. */
-function examRow(context: TemplateContext, exam: Exam, centre: number, ink: Ink): NodeDraft[] {
+/**
+ * One exam row: the crest and name column centred against the facts, on the row's middle; its
+ * lowest capitals or baseline may not pass `bottom`.
+ */
+function examRow(
+  context: TemplateContext,
+  exam: Exam,
+  centre: number,
+  bottom: number,
+  ink: Ink,
+): NodeDraft[] {
   const name = ROW.name;
   const namePlaced = {
     x: name.centre - name.width / 2,
@@ -603,6 +614,13 @@ function examRow(context: TemplateContext, exam: Exam, centre: number, ink: Ink)
   }
   nodes.push(nameText(exam.name, { ...namePlaced, capTop: columnTop + crestHeight }, ink));
   if (runs.length > 0) nodes.push(textRuns('fatos', runs, { ...factsPlaced, capTop: factsTop }));
+  // Nothing shrinks: a row taller than its room runs into the rule or the signature, and the
+  // author is told by how much.
+  reportOverflow(
+    context.report,
+    Math.max(factsTop + factsHeight, columnTop + columnHeight),
+    bottom,
+  );
   return nodes;
 }
 
