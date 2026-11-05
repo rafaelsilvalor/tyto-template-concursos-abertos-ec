@@ -10,6 +10,7 @@ import { compileExample } from './compile.js';
 describe.each([
   ['semana', 4],
   ['sem-brasao', 4],
+  ['sem-area', 4],
 ])('the example %s', (name, slides) => {
   it(`compiles to ${String(slides)} grid slides, the HTML the template drew last time`, async () => {
     const compiled = await compileExample(`${name}.brief`);

@@ -1,0 +1,48 @@
+---
+template: concursos-abertos-ec
+formats: [grid]
+---
+// Area slides as they vary, in invented copy: two exams with no area title, centred on the
+// slide; one exam under a title, with a fact long enough to wrap, kept clear of the title; a
+// title of three lines, which grows down and takes the exams down with it.
+
+::lamina
+  Concurso: Bombeiro QX
+  Banca: Instituto Cetrix
+  Período de inscrições: até 23/11
+  Data da prova: 28/02
+  Vagas: 570
+  Salário: R$ 5.617,92 a R$ 12.937,33
+  Concurso: PM Vale Alto Oficial
+  Banca: Quintex
+  Período de inscrições: até 10/12
+  Data da prova: 10/01
+  Vagas: 90
+  Salário: R$ 7.912,17 a R$ 12.170,61
+
+::lamina
+  Área Bancária e Financeira
+::brasao ./brasao-escudo.png
+  Concurso: BANQX
+  Banca: Ômegas
+  Período de inscrições: até 23/11
+  Data da prova: 24/01/2027
+  Vagas: 936 CR
+  Salário: R$ 4.444,43 a R$ 5.618,71 + benefícios
+
+::lamina
+  Tribunais, Defensorias, Procuradorias e Ministérios Públicos
+  Concurso: TJ QX
+  Banca: Quintex
+  Período de inscrições: até 18/11
+  Data da prova: 24/01/2027
+  Vagas: 50 + CR
+  Salário inicial: R$ 7.526,14
+  Concurso: DPE QX
+  Banca: Ômegas
+  Período de inscrições: até 13/11
+  Data da prova: 28/02/2027
+  Vagas: 20
+  Salário inicial: R$ 4.042,50 a R$ 5.197,50
+
+::lamina {contracapa}

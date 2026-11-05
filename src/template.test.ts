@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { compileExample } from '../tests/compile.js';
 
-import { ROW } from './template.js';
+import { AREA_TITLE, CONTENT, ROW } from './template.js';
 
 /**
  * The composition's rules, read on the `Scene` the example briefs compile to: what each kind of
@@ -78,11 +78,12 @@ describe('the example without crests', () => {
     expect(named(two!, 'brasao')).toHaveLength(0);
     expect(named(one!, 'brasao')).toHaveLength(0);
     const [top, bottom] = named(two!, 'concurso');
-    // Without a crest the name column is the name alone, centred on the row's middle.
-    expect(top!.transform.y).toBeGreaterThan(ROW.centres[0] - 100);
-    expect(top!.transform.y).toBeLessThan(ROW.centres[0]);
-    expect(bottom!.transform.y).toBeGreaterThan(ROW.centres[1] - 100);
-    expect(bottom!.transform.y).toBeLessThan(ROW.centres[1]);
+    const [rule] = named(two!, 'divisoria');
+    // Without a crest the name column is the name alone, centred on its row's middle.
+    expect(top!.transform.y).toBeGreaterThan(rule!.transform.y - ROW.pitch / 2 - 100);
+    expect(top!.transform.y).toBeLessThan(rule!.transform.y - ROW.pitch / 2);
+    expect(bottom!.transform.y).toBeGreaterThan(rule!.transform.y + ROW.pitch / 2 - 100);
+    expect(bottom!.transform.y).toBeLessThan(rule!.transform.y + ROW.pitch / 2);
   });
 
   it('draws the default cover and sign-off when both are empty', async () => {
@@ -93,9 +94,51 @@ describe('the example without crests', () => {
   });
 });
 
+describe('where the exams sit', () => {
+  it('puts the rule on the room under a one-line title: 794, where the reference draws it', async () => {
+    const [, two] = await slidesOf('semana.brief');
+
+    expect(named(two!, 'area')).toHaveLength(1);
+    expect(named(two!, 'divisoria')[0]!.transform.y).toBe(794);
+  });
+
+  it('centres two exams on the slide when it has no area title', async () => {
+    const [two] = await slidesOf('sem-area.brief');
+
+    expect(named(two!, 'area')).toHaveLength(0);
+    expect(named(two!, 'divisoria')[0]!.transform.y).toBe(Math.round(CONTENT.centreWithoutTitle));
+  });
+
+  it('keeps one exam under a title clear of the title by the same gap or more', async () => {
+    const [, one] = await slidesOf('sem-area.brief');
+    const [crest] = named(one!, 'brasao');
+
+    expect(named(one!, 'area')).toHaveLength(1);
+    // The crest's box starts at the room's top or lower; its drawn picture inside the box lower still.
+    expect(crest!.transform.y).toBeGreaterThanOrEqual(
+      AREA_TITLE.capTop + AREA_TITLE.size * 0.709 + CONTENT.titleGap,
+    );
+  });
+});
+
+describe('a long area title', () => {
+  it('starts where a one-line title starts and takes the exams down with its extra lines', async () => {
+    const [, short] = await slidesOf('sem-brasao.brief');
+    const [, , long] = await slidesOf('sem-area.brief');
+    const [shortTitle] = named(short!, 'area');
+    const [longTitle] = named(long!, 'area');
+
+    expect(longTitle!.transform.y).toBe(shortTitle!.transform.y);
+    // The rule moves down by half the title's extra height: the room's top moves by all of it.
+    const below =
+      named(long!, 'divisoria')[0]!.transform.y - named(short!, 'divisoria')[0]!.transform.y;
+    expect(below).toBeGreaterThan(0);
+  });
+});
+
 describe('every slide', () => {
   it('keeps every text and shape inside the slide', async () => {
-    for (const file of ['semana.brief', 'sem-brasao.brief']) {
+    for (const file of ['semana.brief', 'sem-brasao.brief', 'sem-area.brief']) {
       for (const slide of await slidesOf(file)) {
         for (const node of slide.children) {
           const width = node.box?.w ?? node.size?.w ?? 0;

@@ -104,14 +104,21 @@ export const COVER = {
   bandInset: 10,
 } as const;
 
-/** An area slide's title: Medium 51 px, centred, its last baseline where the reference sets it. */
-export const AREA_TITLE = { size: 51.06, lineHeight: 1.25, width: 640, baseline: 294.2 } as const;
+/**
+ * An area slide's title: Medium 51 px, centred, its first capitals where the reference sets a
+ * one-line title (258, its baseline 294.2). A longer title grows downwards, never up towards the
+ * logo, and the exams' room starts under its last line (the maintainer, 2026-11-05).
+ */
+export const AREA_TITLE = { size: 51.06, lineHeight: 1.25, width: 640, capTop: 258 } as const;
 
 /** An exam row, two to a slide: crest and name in a column on the left, facts on the right. */
 export const ROW = {
-  /** The middle of each row; the rule sits between them. */
-  centres: [592, 998],
-  rule: { x: 159, y: 794, w: 764, h: 1 },
+  /**
+   * From one row's middle to the next's, the reference's 592 and 998: the rule sits halfway,
+   * on the content's middle, and each row half this pitch above or below it.
+   */
+  pitch: 406,
+  rule: { x: 159, w: 764, h: 1 },
   /** The closest the upper row's words come to the rule. */
   ruleClearance: 16,
   /**
@@ -126,7 +133,6 @@ export const ROW = {
 
 /** One exam alone on its slide: everything stacked and centred, larger. */
 export const SINGLE = {
-  centre: 669.6,
   /** The reference's crest is 185 px tall in a 207 px box. */
   crest: { w: 251, h: 207, drawn: 185 },
   name: { width: 260, size: 39.9, lineHeight: 48 / 39.9, gap: 40 },
@@ -160,6 +166,43 @@ const LOGO = { x: 85, y: 67, height: 63 } as const;
 const ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: { top: 9, h: 8 }, head: 15 } as const;
 /** The lowest an exam's content may reach: over the signature. */
 const CONTENT_BOTTOM = 1240;
+
+/**
+ * Where an area slide's exams sit (the maintainer, 2026-11-05: "without an area the block is
+ * centred; gaps and alignments stay consistent when the content changes"). One rule for every
+ * area slide: the exams' block — the two rows with the rule between them, or the one exam's
+ * stack — is centred on the room left to it.
+ *
+ * - With a title, the room runs from `titleGap` under the title's last baseline to
+ *   `CONTENT_BOTTOM`. Under a one-line title that centre is 794, where the reference draws its
+ *   rule; a longer title moves the room's top, and the block, down with it.
+ * - Without one, the block is centred on the slide's own middle between the logo's top (67) and
+ *   the signature's capitals (1271), 669; the reference centres its lone exam at 669.6.
+ *
+ * A block taller than its room starts at the room's top, never over the title, and what passes
+ * the bottom is reported.
+ */
+export const CONTENT = {
+  titleGap: 54,
+  /** The room's top when the slide has no title: the logo's foot and the same gap. */
+  topWithoutTitle: 130 + 54,
+  /** Measured on the reference's lone exam; the logo-to-signature middle is 669. */
+  centreWithoutTitle: 669.6,
+} as const;
+
+/**
+ * The middle the exams' block is centred on, and the highest its top may be, given the title's
+ * last baseline when the slide has a title.
+ */
+function contentRoom(
+  titleBaseline: number | undefined,
+  lift: number,
+): { centre: number; top: number } {
+  if (titleBaseline === undefined)
+    return { centre: CONTENT.centreWithoutTitle - lift / 2, top: CONTENT.topWithoutTitle };
+  const top = titleBaseline + CONTENT.titleGap;
+  return { centre: (top + CONTENT_BOTTOM - lift) / 2, top };
+}
 
 /* --------------------------------------------------------------------------- the build -- */
 
@@ -484,35 +527,43 @@ export function readAreaSlide(context: TemplateContext): AreaSlide {
 function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[] {
   const slide = readAreaSlide(context);
   const nodes: NodeDraft[] = [];
-  if (slide.title !== undefined) nodes.push(areaTitle(context, slide.title, ink));
+  const title = slide.title === undefined ? undefined : areaTitle(context, slide.title, ink);
+  if (title !== undefined) nodes.push(title.node);
+  const room = contentRoom(title?.baseline, lift);
   const [first, second, ...rest] = slide.exams;
   if (first === undefined) return nodes;
   if (second === undefined) {
-    nodes.push(...singleExam(context, first, ink, lift));
+    nodes.push(...singleExam(context, first, room, ink, lift));
     return nodes;
   }
+  // The rule on the room's middle, unless that would lift the upper row over the room's top.
+  const rule = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
   nodes.push(
-    ...examRow(context, first, ROW.centres[0], ROW.rule.y - ROW.ruleClearance, ink),
+    ...examRow(context, first, rule - ROW.pitch / 2, rule - ROW.ruleClearance, ink),
     rect({
       name: 'divisoria',
       size: { w: ROW.rule.w, h: ROW.rule.h },
       fill: solid(ink('ink')),
-      transform: { x: ROW.rule.x, y: ROW.rule.y },
+      transform: { x: ROW.rule.x, y: rule },
     }),
-    ...examRow(context, second, ROW.centres[1], CONTENT_BOTTOM - lift, ink),
+    ...examRow(context, second, rule + ROW.pitch / 2, CONTENT_BOTTOM - lift, ink),
   );
   // A slide holds two exams: a third and later are not drawn, and the author is told.
   if (rest.length > 0) {
     context.report({
       code: 'W_TEMPLATE_OVERFLOW',
-      overflow: rest.length * (ROW.centres[1] - ROW.centres[0]),
+      overflow: rest.length * ROW.pitch,
     });
   }
   return nodes;
 }
 
-/** The area's title, centred, wrapped, growing up from the reference's baseline. */
-function areaTitle(context: TemplateContext, words: string, ink: Ink): TextDraft {
+/** The area's title, centred, wrapped, growing down from the reference's capitals; and its last baseline. */
+function areaTitle(
+  context: TemplateContext,
+  words: string,
+  ink: Ink,
+): { node: TextDraft; baseline: number } {
   const placed = {
     x: CENTRE_X - AREA_TITLE.width / 2,
     size: AREA_TITLE.size,
@@ -525,8 +576,8 @@ function areaTitle(context: TemplateContext, words: string, ink: Ink): TextDraft
   const draft = textAt('area', words, { ...placed, capTop: 0 });
   const count = measureText(context, draft, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
-  const capTop = AREA_TITLE.baseline - AREA_TITLE.size * CAP_HEIGHT - (count - 1) * pitch;
-  return textAt('area', words, { ...placed, capTop });
+  const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
+  return { node: textAt('area', words, { ...placed, capTop: AREA_TITLE.capTop }), baseline };
 }
 
 /** An exam's name: "Concurso" in Light, then its name in Medium, centred in a column. */
@@ -624,8 +675,14 @@ function examRow(
   return nodes;
 }
 
-/** One exam alone: crest, name and facts stacked and centred on the slide. */
-function singleExam(context: TemplateContext, exam: Exam, ink: Ink, lift: number): NodeDraft[] {
+/** One exam alone: crest, name and facts stacked and centred on the room the slide leaves. */
+function singleExam(
+  context: TemplateContext,
+  exam: Exam,
+  room: { readonly centre: number; readonly top: number },
+  ink: Ink,
+  lift: number,
+): NodeDraft[] {
   const name = SINGLE.name;
   const namePlaced = {
     x: CENTRE_X - name.width / 2,
@@ -661,7 +718,7 @@ function singleExam(context: TemplateContext, exam: Exam, ink: Ink, lift: number
   const crestHeight = exam.crest === undefined ? 0 : SINGLE.crest.h + name.gap;
   const factsGap = runs.length === 0 ? 0 : SINGLE.factsGap;
   const total = crestHeight + nameHeight + factsGap + factsHeight;
-  const top = SINGLE.centre - total / 2;
+  const top = Math.max(room.top, room.centre - total / 2);
 
   const nodes: NodeDraft[] = [];
   if (exam.crest !== undefined) {

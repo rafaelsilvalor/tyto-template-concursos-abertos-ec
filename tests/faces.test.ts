@@ -28,7 +28,7 @@ function facesIn(node: unknown, found = new Set<string>()): Set<string> {
 describe('the declared faces', () => {
   it('are exactly the faces the examples draw', async () => {
     const drawn = new Set<string>();
-    for (const file of ['semana.brief', 'sem-brasao.brief']) {
+    for (const file of ['semana.brief', 'sem-brasao.brief', 'sem-area.brief']) {
       facesIn((await compileExample(file)).scene, drawn);
     }
     const declared = (manifest.faces ?? []).map((face) => `${face.family} ${String(face.weight)}`);

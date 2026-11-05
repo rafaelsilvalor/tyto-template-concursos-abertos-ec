@@ -22235,11 +22235,14 @@ var COVER = {
   /** The band is the block's widest line, this much narrower on each side. */
   bandInset: 10
 };
-var AREA_TITLE = { size: 51.06, lineHeight: 1.25, width: 640, baseline: 294.2 };
+var AREA_TITLE = { size: 51.06, lineHeight: 1.25, width: 640, capTop: 258 };
 var ROW = {
-  /** The middle of each row; the rule sits between them. */
-  centres: [592, 998],
-  rule: { x: 159, y: 794, w: 764, h: 1 },
+  /**
+   * From one row's middle to the next's, the reference's 592 and 998: the rule sits halfway,
+   * on the content's middle, and each row half this pitch above or below it.
+   */
+  pitch: 406,
+  rule: { x: 159, w: 764, h: 1 },
   /** The closest the upper row's words come to the rule. */
   ruleClearance: 16,
   /**
@@ -22252,7 +22255,6 @@ var ROW = {
   facts: { x: 419, width: 576, size: 32, lineHeight: 55.68 / 32 }
 };
 var SINGLE = {
-  centre: 669.6,
   /** The reference's crest is 185 px tall in a 207 px box. */
   crest: { w: 251, h: 207, drawn: 185 },
   name: { width: 260, size: 39.9, lineHeight: 48 / 39.9, gap: 40 },
@@ -22275,6 +22277,19 @@ var SIGNATURE2 = { size: 24, capTop: 1271, letterSpacing: 9.6 };
 var LOGO = { x: 85, y: 67, height: 63 };
 var ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: { top: 9, h: 8 }, head: 15 };
 var CONTENT_BOTTOM = 1240;
+var CONTENT = {
+  titleGap: 54,
+  /** The room's top when the slide has no title: the logo's foot and the same gap. */
+  topWithoutTitle: 130 + 54,
+  /** Measured on the reference's lone exam; the logo-to-signature middle is 669. */
+  centreWithoutTitle: 669.6
+};
+function contentRoom(titleBaseline, lift) {
+  if (titleBaseline === void 0)
+    return { centre: CONTENT.centreWithoutTitle - lift / 2, top: CONTENT.topWithoutTitle };
+  const top = titleBaseline + CONTENT.titleGap;
+  return { centre: (top + CONTENT_BOTTOM - lift) / 2, top };
+}
 var build = (context) => {
   const ink = (name) => colorValue(context, name, COLOR_DEFAULTS[name]);
   const page = sealed(context.size, sealOf(context));
@@ -22526,27 +22541,30 @@ function readAreaSlide(context) {
 function areaSlide(context, ink, lift) {
   const slide = readAreaSlide(context);
   const nodes = [];
-  if (slide.title !== void 0) nodes.push(areaTitle(context, slide.title, ink));
+  const title = slide.title === void 0 ? void 0 : areaTitle(context, slide.title, ink);
+  if (title !== void 0) nodes.push(title.node);
+  const room = contentRoom(title?.baseline, lift);
   const [first, second, ...rest] = slide.exams;
   if (first === void 0) return nodes;
   if (second === void 0) {
-    nodes.push(...singleExam(context, first, ink, lift));
+    nodes.push(...singleExam(context, first, room, ink, lift));
     return nodes;
   }
+  const rule = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
   nodes.push(
-    ...examRow(context, first, ROW.centres[0], ROW.rule.y - ROW.ruleClearance, ink),
+    ...examRow(context, first, rule - ROW.pitch / 2, rule - ROW.ruleClearance, ink),
     rect({
       name: "divisoria",
       size: { w: ROW.rule.w, h: ROW.rule.h },
       fill: solid(ink("ink")),
-      transform: { x: ROW.rule.x, y: ROW.rule.y }
+      transform: { x: ROW.rule.x, y: rule }
     }),
-    ...examRow(context, second, ROW.centres[1], CONTENT_BOTTOM - lift, ink)
+    ...examRow(context, second, rule + ROW.pitch / 2, CONTENT_BOTTOM - lift, ink)
   );
   if (rest.length > 0) {
     context.report({
       code: "W_TEMPLATE_OVERFLOW",
-      overflow: rest.length * (ROW.centres[1] - ROW.centres[0])
+      overflow: rest.length * ROW.pitch
     });
   }
   return nodes;
@@ -22564,8 +22582,8 @@ function areaTitle(context, words, ink) {
   const draft = textAt("area", words, { ...placed, capTop: 0 });
   const count = measureText(context, draft, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
-  const capTop = AREA_TITLE.baseline - AREA_TITLE.size * CAP_HEIGHT - (count - 1) * pitch;
-  return textAt("area", words, { ...placed, capTop });
+  const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
+  return { node: textAt("area", words, { ...placed, capTop: AREA_TITLE.capTop }), baseline };
 }
 function nameText(name, placed, ink) {
   const base2 = { font: FACE2, size: placed.size, weight: LIGHT, color: ink("body-ink") };
@@ -22639,7 +22657,7 @@ function examRow(context, exam, centre, bottom, ink) {
   );
   return nodes;
 }
-function singleExam(context, exam, ink, lift) {
+function singleExam(context, exam, room, ink, lift) {
   const name = SINGLE.name;
   const namePlaced = {
     x: CENTRE_X - name.width / 2,
@@ -22670,7 +22688,7 @@ function singleExam(context, exam, ink, lift) {
   const crestHeight = exam.crest === void 0 ? 0 : SINGLE.crest.h + name.gap;
   const factsGap = runs.length === 0 ? 0 : SINGLE.factsGap;
   const total = crestHeight + nameHeight + factsGap + factsHeight;
-  const top = SINGLE.centre - total / 2;
+  const top = Math.max(room.top, room.centre - total / 2);
   const nodes = [];
   if (exam.crest !== void 0) {
     nodes.push(crest(exam.crest, { x: CENTRE_X - SINGLE.crest.w / 2, y: top }, SINGLE.crest));
