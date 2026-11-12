@@ -22753,6 +22753,9 @@ function textRuns(name, runs, placed) {
     align: placed.align ?? "left",
     lineHeight,
     letterSpacing: placed.letterSpacing ?? 0,
+    // Never cut at the box: at a line height of 1 an accented capital on the first line
+    // (the Á of MONGAGUÁ) rises above the line's box, and a clipped box drops the accent.
+    overflow: "grow",
     transform: { x: placed.x, y: placed.capTop - capOffset(placed.size, lineHeight) }
   });
 }
