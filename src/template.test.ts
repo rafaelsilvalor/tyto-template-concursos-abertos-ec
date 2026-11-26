@@ -29,8 +29,22 @@ async function slidesOf(file: string): Promise<Slide[]> {
   return scene.artworks.map((artwork) => artwork.frames[0]!);
 }
 
+/**
+ * Every node of a slide, each at its place on the slide: a group moves what it holds, so its
+ * offset is summed into its children's. Since TYTO-883 a two-exam slide's rows are a table of
+ * groups, and a node's own transform is only its place in its cell.
+ */
+function placed(slide: Slide): Node[] {
+  const walk = (nodes: readonly Node[], x: number, y: number): Node[] =>
+    nodes.flatMap((node) => {
+      const at = { x: x + node.transform.x, y: y + node.transform.y };
+      return [{ ...node, transform: at }, ...walk(node.children ?? [], at.x, at.y)];
+    });
+  return walk(slide.children, 0, 0);
+}
+
 const named = (slide: Slide, name: string): Node[] =>
-  slide.children.filter((node) => node.name === name);
+  placed(slide).filter((node) => node.name === name);
 
 const words = (node: Node): string =>
   (node.runs ?? []).map((item) => (item.kind === 'text' ? (item.text ?? '') : '\n')).join('');
@@ -140,7 +154,7 @@ describe('every slide', () => {
   it('keeps every text and shape inside the slide', async () => {
     for (const file of ['semana.brief', 'sem-brasao.brief', 'sem-area.brief']) {
       for (const slide of await slidesOf(file)) {
-        for (const node of slide.children) {
+        for (const node of placed(slide)) {
           const width = node.box?.w ?? node.size?.w ?? 0;
           expect(node.transform.x, node.name).toBeGreaterThanOrEqual(0);
           expect(node.transform.x + width, node.name).toBeLessThanOrEqual(1080);
