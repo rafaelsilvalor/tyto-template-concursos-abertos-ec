@@ -22,6 +22,7 @@
 import {
   colorValue,
   frame,
+  group,
   lineBreak,
   rect,
   run,
@@ -32,7 +33,16 @@ import {
   image,
 } from '@tyto/core/template';
 import { drawLogo, sealOf, signatureOf } from '@tyto/house-style';
-import { at, labelOf, lines, plain, reportOverflow, sealed } from '@tyto/template-kit';
+import {
+  at,
+  block,
+  labelOf,
+  lines,
+  plain,
+  reportOverflow,
+  sealed,
+  table,
+} from '@tyto/template-kit';
 
 import type {
   AssetRef,
@@ -43,6 +53,7 @@ import type {
   TextRun,
 } from '@tyto/core';
 import type { NodeDraft, TextDraft } from '@tyto/core/template';
+import type { TableRow, TableStyle } from '@tyto/template-kit';
 
 /* ------------------------------------------------------------------------- the tokens -- */
 
@@ -538,16 +549,7 @@ function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[
   }
   // The rule on the room's middle, unless that would lift the upper row over the room's top.
   const rule = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
-  nodes.push(
-    ...examRow(context, first, rule - ROW.pitch / 2, rule - ROW.ruleClearance, ink),
-    rect({
-      name: 'divisoria',
-      size: { w: ROW.rule.w, h: ROW.rule.h },
-      fill: solid(ink('ink')),
-      transform: { x: ROW.rule.x, y: rule },
-    }),
-    ...examRow(context, second, rule + ROW.pitch / 2, CONTENT_BOTTOM - lift, ink),
-  );
+  nodes.push(examRows(context, [first, second], rule, CONTENT_BOTTOM - lift, ink));
   // A slide holds two exams: a third and later are not drawn, and the author is told.
   if (rest.length > 0) {
     context.report({
@@ -609,20 +611,85 @@ function factRuns(facts: readonly RichText[], size: number, ink: Ink): TextRun[]
   });
 }
 
+/** The name column's left edge: the table's, the crest centred above the name inside it. */
+const NAME_LEFT = ROW.name.centre - ROW.name.width / 2;
+
 /**
- * One exam row: the crest and name column centred against the facts, on the row's middle; its
- * lowest capitals or baseline may not pass `bottom`.
+ * Two exams in rows by the kit's `table` (TYTO-883): the crest and name column and the facts,
+ * each centred on its row's middle, and between the rows a band of no height holding the rule.
+ *
+ * Each row's middle is fixed, half the pitch either side of the rule, whatever the rows hold;
+ * the table stacks rows, so its gap is what puts both middles there. A cell is placed by the top
+ * of its capitals: it declares the height from its first capitals to its last baseline and
+ * draws its words a cap offset above its top, so the table's middle is the capitals' middle.
+ * Nothing shrinks: a row taller than its room runs into the rule or the signature, and the
+ * author is told by how much, the upper row against the rule and the lower one against `bottom`.
  */
-function examRow(
+function examRows(
   context: TemplateContext,
-  exam: Exam,
-  centre: number,
+  exams: readonly [Exam, Exam],
+  rule: number,
   bottom: number,
   ink: Ink,
-): NodeDraft[] {
+): NodeDraft {
+  const [upper, lower] = exams.map((exam) => examCells(context, exam, ink)) as [
+    ExamCells,
+    ExamCells,
+  ];
+  const gap = (ROW.pitch - (upper.height + lower.height) / 2) / 2;
+  const top = rule - ROW.pitch / 2 - upper.height / 2;
+  const ruleBand = top + upper.height + gap;
+  const layout: TableStyle = {
+    columns: [
+      { name: 'exam-name', width: ROW.name.width, valign: 'middle' },
+      { name: 'exam-facts', width: ROW.facts.width, valign: 'middle' },
+    ],
+    kinds: { exam: { name: 'exam' }, rule: { name: 'rule' } },
+    columnGap: ROW.facts.x - (NAME_LEFT + ROW.name.width),
+    rowGap: gap,
+    minRowHeight: 0,
+    names: { table: 'exams', row: 'exam' },
+  };
+  const rows: TableRow[] = [
+    upper.row,
+    {
+      kind: 'rule',
+      span: true,
+      cells: [
+        {
+          draw: (width) =>
+            block(
+              width,
+              0,
+              rect({
+                name: 'divisoria',
+                size: { w: ROW.rule.w, h: ROW.rule.h },
+                fill: solid(ink('ink')),
+                transform: { x: ROW.rule.x - NAME_LEFT, y: rule - ruleBand },
+              }),
+            ),
+        },
+      ],
+    },
+    lower.row,
+  ];
+  const drawn = table(layout, rows, ROW.facts.x + ROW.facts.width - NAME_LEFT);
+  reportOverflow(context.report, top + upper.height, rule - ROW.ruleClearance);
+  reportOverflow(context.report, top + drawn.height, bottom);
+  return at(NAME_LEFT, top, drawn);
+}
+
+interface ExamCells {
+  readonly row: TableRow;
+  /** The taller of the two cells, from its first capitals to its last baseline. */
+  readonly height: number;
+}
+
+/** One exam's row: the crest and name column, and the facts. */
+function examCells(context: TemplateContext, exam: Exam, ink: Ink): ExamCells {
   const name = ROW.name;
   const namePlaced = {
-    x: name.centre - name.width / 2,
+    x: NAME_LEFT,
     size: name.size,
     lineHeight: name.lineHeight,
     width: name.width,
@@ -638,7 +705,6 @@ function examRow(
   const nameHeight = (nameLines - 1) * name.size * name.lineHeight + name.size * CAP_HEIGHT;
   const crestHeight = exam.crest === undefined ? 0 : ROW.crest.h + name.gap;
   const columnHeight = crestHeight + nameHeight;
-  const columnTop = centre - columnHeight / 2;
 
   const facts = ROW.facts;
   const runs = factRuns(exam.facts, facts.size, ink);
@@ -657,22 +723,32 @@ function examRow(
     facts.width,
   ).lines;
   const factsHeight = (factLines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
-  const factsTop = centre - factsHeight / 2;
 
-  const nodes: NodeDraft[] = [];
+  const column: NodeDraft[] = [];
   if (exam.crest !== undefined) {
-    nodes.push(crest(exam.crest, { x: ROW.crest.x, y: columnTop }, ROW.crest));
+    column.push(crest(exam.crest, { x: ROW.crest.x - NAME_LEFT, y: 0 }, ROW.crest));
   }
-  nodes.push(nameText(exam.name, { ...namePlaced, capTop: columnTop + crestHeight }, ink));
-  if (runs.length > 0) nodes.push(textRuns('fatos', runs, { ...factsPlaced, capTop: factsTop }));
-  // Nothing shrinks: a row taller than its room runs into the rule or the signature, and the
-  // author is told by how much.
-  reportOverflow(
-    context.report,
-    Math.max(factsTop + factsHeight, columnTop + columnHeight),
-    bottom,
-  );
-  return nodes;
+  column.push(nameText(exam.name, { ...namePlaced, x: 0, capTop: crestHeight }, ink));
+  return {
+    row: {
+      kind: 'exam',
+      cells: [
+        { draw: (width) => block(width, columnHeight, group({ children: column })) },
+        // An exam with no facts draws none, and its facts' height still counts, as it always did.
+        {
+          draw: (width) =>
+            block(
+              width,
+              factsHeight,
+              runs.length > 0
+                ? textRuns('fatos', runs, { ...factsPlaced, x: 0, capTop: 0 })
+                : group({ children: [] }),
+            ),
+        },
+      ],
+    },
+    height: Math.max(columnHeight, factsHeight),
+  };
 }
 
 /** One exam alone: crest, name and facts stacked and centred on the room the slide leaves. */
