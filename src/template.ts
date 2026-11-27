@@ -19,28 +19,30 @@
  * default is the reference's.
  */
 
-import {
-  colorValue,
-  frame,
-  group,
-  lineBreak,
-  rect,
-  run,
-  runsOf,
-  solid,
-  text,
-  vector,
-  image,
-} from '@tyto/core/template';
+import { colorValue, frame, lineBreak, runsOf, solid } from '@tyto/core/template';
 import { drawLogo, sealOf, signatureOf } from '@tyto/house-style';
 import {
+  anchorOf,
+  arrowShape,
   at,
+  atLeastOne,
+  barePicture,
   block,
+  capText,
+  carouselFooter,
   labelOf,
+  labelValueRuns,
   lines,
   plain,
+  plainRuns,
   reportOverflow,
+  richTextOfPlain,
+  rule,
   sealed,
+  shape,
+  signatureLine,
+  slideRichLines,
+  stackIn,
   table,
 } from '@tyto/template-kit';
 
@@ -52,8 +54,8 @@ import type {
   TemplateContext,
   TextRun,
 } from '@tyto/core';
-import type { NodeDraft, TextDraft } from '@tyto/core/template';
-import type { TableRow, TableStyle } from '@tyto/template-kit';
+import type { NodeDraft, NonEmpty } from '@tyto/core/template';
+import type { Area, Block, TableRow, TableStyle } from '@tyto/template-kit';
 
 /* ------------------------------------------------------------------------- the tokens -- */
 
@@ -79,19 +81,15 @@ const MEDIUM = 500;
 const BLACK = 900;
 
 /**
- * CircularXX's vertical metrics, in em, from its `OS/2` table and the same in every weight: a
- * line of height `lineHeight` puts the content area in its middle, so the capitals start this
- * far below the line's top (measured on concursos-abertos against its reference art).
+ * CircularXX's capital height, in em. Its vertical metrics are the kit's `DEFAULT_METRICS`
+ * (ascent 0.75, descent 0.25, this cap height), from its `OS/2` table and the same in every
+ * weight: the kit places a text's capitals by them (measured on concursos-abertos against its
+ * reference art).
  */
-const ASCENT = 0.75;
-const DESCENT = 0.25;
 const CAP_HEIGHT = 0.709;
 
-function capOffset(size: number, lineHeight: number): number {
-  return size * ((lineHeight - (ASCENT + DESCENT)) / 2 + (ASCENT - CAP_HEIGHT));
-}
-
 const SLIDE_WIDTH = 1080;
+const SLIDE_HEIGHT = 1350;
 const CENTRE_X = SLIDE_WIDTH / 2;
 /** A glyph's advance, in em, for when nothing can be measured (a test, CI without the face). */
 const ESTIMATED_ADVANCE = 0.55;
@@ -173,8 +171,8 @@ export const SIGN_OFF = {
 const SIGNATURE = { size: 24, capTop: 1271, letterSpacing: 9.6 } as const;
 /** The logo, as the reference places the owl: 63 px tall, 85 px from the left. */
 const LOGO = { x: 85, y: 67, height: 63 } as const;
-/** The arrow: a shaft and a narrow head, the reference's box. */
-const ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: { top: 9, h: 8 }, head: 15 } as const;
+/** The arrow: an 8 px shaft and a narrow 15 px head, in the reference's box. */
+const ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: 8, head: 15 } as const;
 /** The lowest an exam's content may reach: over the signature. */
 const CONTENT_BOTTOM = 1240;
 
@@ -219,8 +217,8 @@ function contentRoom(
 
 export const build: TemplateBuild = (context: TemplateContext) => {
   const ink: Ink = (name) => colorValue(context, name, COLOR_DEFAULTS[name]);
-  // The house's seal, the brief's `selo`, glued to the last slide's foot (TYTO-201): the
-  // signature rises by its band.
+  // The house's seal, the brief's `selo`, glued to the last slide's foot (TYTO-201): the footer
+  // stands on the page the seal leaves, so the signature rises by its band.
   const page = sealed(context.size, sealOf(context));
   const lift = context.size.h - page.size.h;
   const last = context.artwork.index === context.artwork.count - 1;
@@ -241,21 +239,45 @@ export const build: TemplateBuild = (context: TemplateContext) => {
         LOGO.y,
         drawLogo(context.brand, LOGO.height, { primary: ink('ink'), secondary: ink('ink') }),
       ),
-      textAt('assinatura', signatureOf(context.brand), {
-        x: 0,
-        capTop: SIGNATURE.capTop - lift,
-        size: SIGNATURE.size,
-        weight: LIGHT,
-        color: ink('ink'),
-        width: SLIDE_WIDTH,
-        align: 'center',
-        letterSpacing: SIGNATURE.letterSpacing,
-      }),
-      ...(last ? [] : [arrow(ink('arrow-ink'))]),
+      footer(context, { width: page.size.w, height: page.size.h }, ink, last),
       ...page.seal,
     ],
   });
 };
+
+/**
+ * The footer over `page`, the slide less the seal's band: the brand's signature and, on every
+ * slide but the last, the arrow to the next one. The kit stands both on the page's foot.
+ */
+function footer(context: TemplateContext, page: Area, ink: Ink, last: boolean): NodeDraft {
+  const line = signatureLine(
+    signatureOf(context.brand),
+    { width: SLIDE_WIDTH, height: Infinity },
+    { font: FACE, weight: LIGHT, color: ink('ink') },
+    { size: SIGNATURE.size, letterSpacing: SIGNATURE.letterSpacing },
+    { name: 'assinatura', text: { overflow: 'grow' } },
+  );
+  const arrow = arrowShape(
+    { w: ARROW.w, h: ARROW.h },
+    solid(ink('arrow-ink')),
+    { shaft: ARROW.shaft, headRatio: ARROW.head / ARROW.h },
+    { name: 'seta' },
+  );
+  return at(
+    0,
+    0,
+    carouselFooter(
+      page,
+      { signature: line, ...(last ? {} : { trailing: arrow }) },
+      {
+        signatureFromFoot: SLIDE_HEIGHT - SIGNATURE.capTop,
+        trailingFromFoot: SLIDE_HEIGHT - (ARROW.y + ARROW.h),
+        trailingInset: SLIDE_WIDTH - (ARROW.x + ARROW.w),
+      },
+      { name: 'rodape' },
+    ),
+  );
+}
 
 /* -------------------------------------------------------------------------- the cover -- */
 
@@ -264,18 +286,22 @@ export const build: TemplateBuild = (context: TemplateContext) => {
  * set white on a band as wide as the block's widest line.
  */
 function cover(context: TemplateContext, ink: Ink): NodeDraft[] {
-  const written = slidePlainLines(context);
+  const written = slideRichLines(context).map((line) => plain(line).trim());
   const [titleLines, bandLine] = splitCover(written.length === 0 ? DEFAULT_COVER : written);
-  const style = { size: COVER.size, lineHeight: COVER.lineHeight, width: COVER.width };
-  const title = textAt('capa-titulo', titleLines.join('\n'), {
-    ...style,
-    x: CENTRE_X - COVER.width / 2,
-    capTop: 0,
-    weight: BLACK,
-    color: ink('ink'),
+  const set = {
+    size: COVER.size,
+    lineHeight: COVER.lineHeight,
+    width: COVER.width,
     align: 'center',
-  });
-  const measuredTitle = measureText(context, title, titleLines, COVER.size, COVER.width);
+  } as const;
+  const style = { font: FACE, size: COVER.size, weight: BLACK };
+  const left = CENTRE_X - COVER.width / 2;
+  const title = capitals(
+    'capa-titulo',
+    plainRuns(titleLines.join('\n'), { ...style, color: ink('ink') }),
+    set,
+  );
+  const measuredTitle = laidOut(context, title, titleLines, COVER.size, COVER.width);
   const titleCount = titleLines.length === 0 ? 0 : measuredTitle.lines;
   const pitch = COVER.size * COVER.lineHeight;
   const capHeight = COVER.size * CAP_HEIGHT;
@@ -285,38 +311,23 @@ function cover(context: TemplateContext, ink: Ink): NodeDraft[] {
     titleCount * pitch + (bandLine === undefined ? capHeight - pitch : capHeight + COVER.bandUnder);
   const top = COVER.centre - blockHeight / 2;
   const nodes: NodeDraft[] = [];
-  if (titleCount > 0) {
-    nodes.push(
-      textAt('capa-titulo', titleLines.join('\n'), {
-        ...style,
-        x: CENTRE_X - COVER.width / 2,
-        capTop: top,
-        weight: BLACK,
-        color: ink('ink'),
-        align: 'center',
-      }),
-    );
-  }
+  if (titleCount > 0) nodes.push(capitalsAt(left, top, title));
   if (bandLine !== undefined) {
     const capTop = top + titleCount * pitch;
-    const band = textAt('capa-faixa-texto', bandLine, {
-      ...style,
-      x: CENTRE_X - COVER.width / 2,
-      capTop,
-      weight: BLACK,
-      color: ink('on-ink'),
-      align: 'center',
-    });
-    const bandWidth = measureText(context, band, [bandLine], COVER.size, COVER.width).width;
+    const band = capitals(
+      'capa-faixa-texto',
+      plainRuns(bandLine, { ...style, color: ink('on-ink') }),
+      set,
+    );
+    const bandWidth = laidOut(context, band, [bandLine], COVER.size, COVER.width).width;
     const width = Math.max(measuredTitle.width, bandWidth) - 2 * COVER.bandInset;
     nodes.push(
-      rect({
-        name: 'capa-faixa',
-        size: { w: width, h: bandHeight },
-        fill: solid(ink('ink')),
-        transform: { x: CENTRE_X - width / 2, y: capTop - COVER.bandOver },
-      }),
-      band,
+      at(
+        CENTRE_X - width / 2,
+        capTop - COVER.bandOver,
+        shape({ w: width, h: bandHeight }, solid(ink('ink')), {}, { name: 'capa-faixa' }),
+      ),
+      capitalsAt(left, capTop, band),
     );
   }
   return nodes;
@@ -339,16 +350,32 @@ interface Word {
 /**
  * The sign-off's paragraph, broken into lines here rather than by the exporter: the boxed
  * word's box is drawn behind it, so this template must know where that word lands.
+ *
+ * Pending the boxed run (Tyto ADR 0231): a run that carries its own box lets core break these
+ * lines, and this loop, `wordsOf` and the advances go with it. That swap moves pixels, so it is
+ * its own decision and not part of the recomposition (TYTO-893).
  */
 function signOff(context: TemplateContext, ink: Ink): NodeDraft[] {
   const written = slideRichLines(context);
-  const source = written.length === 0 ? DEFAULT_SIGN_OFF : undefined;
-  const words = source === undefined ? wordsOfRich(written) : wordsOfMarkdown(source);
-  const space = advance(context, ' ', LIGHT, SIGN_OFF.size);
+  const words = wordsOf(written.length === 0 ? [richTextOfPlain(DEFAULT_SIGN_OFF)] : written);
+  const piece = (name: string, text: string, weight: number, color: string): Block =>
+    capitals(name, plainRuns(text, { font: FACE, size: SIGN_OFF.size, weight, color }), {
+      size: SIGN_OFF.size,
+    });
+  // A word's advance at a weight: measured when the context can, estimated otherwise.
+  const advance = (text: string, weight: number): number => {
+    const measure = (sample: string): number | undefined =>
+      measured(context, piece('medida', sample, weight, '#000000'))?.width;
+    const width = measure(text === ' ' ? 'a a' : text);
+    if (width === undefined) return [...text].length * SIGN_OFF.size * ESTIMATED_ADVANCE;
+    if (text !== ' ') return width;
+    // A space's advance: "a a" less two "a".
+    const single = measure('aa');
+    return single === undefined ? SIGN_OFF.size * 0.25 : width - single;
+  };
+  const space = advance(' ', LIGHT);
   const widthOf = (word: Word): number =>
-    word.boxed
-      ? advance(context, word.words, BLACK, SIGN_OFF.size) + 2 * SIGN_OFF.box.padX
-      : advance(context, word.words, LIGHT, SIGN_OFF.size);
+    word.boxed ? advance(word.words, BLACK) + 2 * SIGN_OFF.box.padX : advance(word.words, LIGHT);
   // Greedy lines within the paragraph's width, the boxed word one unit.
   const rows: Word[][] = [];
   let row: Word[] = [];
@@ -382,13 +409,11 @@ function signOff(context: TemplateContext, ink: Ink): NodeDraft[] {
     const flush = (): void => {
       if (pending.length === 0) return;
       nodes.push(
-        textAt('contracapa-texto', pending.join(' '), {
-          x: pendingX,
+        capitalsAt(
+          pendingX,
           capTop,
-          size: SIGN_OFF.size,
-          weight: LIGHT,
-          color: ink('body-ink'),
-        }),
+          piece('contracapa-texto', pending.join(' '), LIGHT, ink('body-ink')),
+        ),
       );
       pending = [];
     };
@@ -397,22 +422,21 @@ function signOff(context: TemplateContext, ink: Ink): NodeDraft[] {
       if (word.boxed) {
         flush();
         nodes.push(
-          rect({
-            name: 'contracapa-caixa',
-            size: {
-              w: width,
-              h: SIGN_OFF.box.over + capHeight + SIGN_OFF.box.under,
-            },
-            fill: solid(ink('ink')),
-            transform: { x, y: capTop - SIGN_OFF.box.over },
-          }),
-          textAt('contracapa-destaque', word.words, {
-            x: x + SIGN_OFF.box.padX,
+          at(
+            x,
+            capTop - SIGN_OFF.box.over,
+            shape(
+              { w: width, h: SIGN_OFF.box.over + capHeight + SIGN_OFF.box.under },
+              solid(ink('ink')),
+              {},
+              { name: 'contracapa-caixa' },
+            ),
+          ),
+          capitalsAt(
+            x + SIGN_OFF.box.padX,
             capTop,
-            size: SIGN_OFF.size,
-            weight: BLACK,
-            color: ink('on-ink'),
-          }),
+            piece('contracapa-destaque', word.words, BLACK, ink('on-ink')),
+          ),
         );
       } else {
         if (pending.length === 0) pendingX = x;
@@ -425,8 +449,8 @@ function signOff(context: TemplateContext, ink: Ink): NodeDraft[] {
   return nodes;
 }
 
-/** The sign-off's words from the brief: a `**…**` span is one boxed unit. */
-function wordsOfRich(written: readonly RichText[]): Word[] {
+/** The sign-off's words as written: a `**…**` span is one boxed unit. */
+function wordsOf(written: readonly RichText[]): Word[] {
   const words: Word[] = [];
   for (const line of written) {
     const runs = runsOf(
@@ -450,18 +474,6 @@ function wordsOfRich(written: readonly RichText[]): Word[] {
     }
   }
   return words;
-}
-
-/** The default paragraph, written as the brief would write it. */
-function wordsOfMarkdown(source: string): Word[] {
-  return source.split(/(\*\*[^*]+\*\*)/).flatMap((piece): Word[] =>
-    piece.startsWith('**')
-      ? [{ words: piece.slice(2, -2), boxed: true }]
-      : piece
-          .split(/\s+/)
-          .filter((part) => part !== '')
-          .map((part) => ({ words: part, boxed: false })),
-  );
 }
 
 /* ---------------------------------------------------------------------- the area slide -- */
@@ -548,8 +560,8 @@ function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[
     return nodes;
   }
   // The rule on the room's middle, unless that would lift the upper row over the room's top.
-  const rule = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
-  nodes.push(examRows(context, [first, second], rule, CONTENT_BOTTOM - lift, ink));
+  const middle = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
+  nodes.push(examRows(context, [first, second], middle, CONTENT_BOTTOM - lift, ink));
   // A slide holds two exams: a third and later are not drawn, and the author is told.
   if (rest.length > 0) {
     context.report({
@@ -565,49 +577,47 @@ function areaTitle(
   context: TemplateContext,
   words: string,
   ink: Ink,
-): { node: TextDraft; baseline: number } {
-  const placed = {
-    x: CENTRE_X - AREA_TITLE.width / 2,
-    size: AREA_TITLE.size,
-    lineHeight: AREA_TITLE.lineHeight,
-    width: AREA_TITLE.width,
-    weight: MEDIUM,
-    color: ink('ink'),
-    align: 'center' as const,
-  };
-  const draft = textAt('area', words, { ...placed, capTop: 0 });
-  const count = measureText(context, draft, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
+): { node: NodeDraft; baseline: number } {
+  const set = capitals(
+    'area',
+    plainRuns(words, { font: FACE, size: AREA_TITLE.size, weight: MEDIUM, color: ink('ink') }),
+    {
+      size: AREA_TITLE.size,
+      lineHeight: AREA_TITLE.lineHeight,
+      width: AREA_TITLE.width,
+      align: 'center',
+    },
+  );
+  const count = laidOut(context, set, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
   const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
-  return { node: textAt('area', words, { ...placed, capTop: AREA_TITLE.capTop }), baseline };
+  return {
+    node: capitalsAt(CENTRE_X - AREA_TITLE.width / 2, AREA_TITLE.capTop, set),
+    baseline,
+  };
 }
 
 /** An exam's name: "Concurso" in Light, then its name in Medium, centred in a column. */
 function nameText(
   name: string,
-  placed: { x: number; capTop: number; size: number; lineHeight: number; width: number },
+  set: { readonly size: number; readonly lineHeight: number; readonly width: number },
   ink: Ink,
-): TextDraft {
-  const base = { font: FACE, size: placed.size, weight: LIGHT, color: ink('body-ink') };
-  const runs: TextRun[] = [run('Concurso', base)];
-  if (name !== '') {
-    runs.push(lineBreak(), run(name, { ...base, weight: MEDIUM, color: ink('ink') }));
-  }
-  return textRuns('concurso', runs, { ...placed, align: 'center' });
+): Block {
+  const base = { font: FACE, size: set.size, weight: LIGHT, color: ink('body-ink') };
+  const [first, ...others] = plainRuns('Concurso', base);
+  const named =
+    name === ''
+      ? []
+      : [lineBreak(), ...plainRuns(name, { ...base, weight: MEDIUM, color: ink('ink') })];
+  return capitals('concurso', [first, ...others, ...named], { ...set, align: 'center' });
 }
 
 /** An exam's facts, one per line: the label Medium in the brand's colour, the value Light. */
 function factRuns(facts: readonly RichText[], size: number, ink: Ink): TextRun[] {
   const body = { font: FACE, size, weight: LIGHT, color: ink('body-ink') };
-  const labelStyle = { ...body, weight: MEDIUM, color: ink('ink') };
-  return facts.flatMap((line, index) => {
-    const { label, text: rest } = labelOf(line);
-    const value = plain(rest).replace(/^\s+/, '');
-    return [
-      ...(index > 0 ? [lineBreak()] : []),
-      ...(label === undefined ? [] : [run(`${plain(label).trim()} `, labelStyle)]),
-      run(label === undefined ? plain(line).trim() : value, body),
-    ];
+  return labelValueRuns(facts.map(plain), {
+    label: { ...body, weight: MEDIUM, color: ink('ink') },
+    value: body,
   });
 }
 
@@ -628,7 +638,7 @@ const NAME_LEFT = ROW.name.centre - ROW.name.width / 2;
 function examRows(
   context: TemplateContext,
   exams: readonly [Exam, Exam],
-  rule: number,
+  middle: number,
   bottom: number,
   ink: Ink,
 ): NodeDraft {
@@ -637,7 +647,7 @@ function examRows(
     ExamCells,
   ];
   const gap = (ROW.pitch - (upper.height + lower.height) / 2) / 2;
-  const top = rule - ROW.pitch / 2 - upper.height / 2;
+  const top = middle - ROW.pitch / 2 - upper.height / 2;
   const ruleBand = top + upper.height + gap;
   const layout: TableStyle = {
     columns: [
@@ -650,6 +660,12 @@ function examRows(
     minRowHeight: 0,
     names: { table: 'exams', row: 'exam' },
   };
+  const divider = rule(
+    ROW.rule.w,
+    solid(ink('ink')),
+    { thickness: ROW.rule.h },
+    { name: 'divisoria' },
+  );
   const rows: TableRow[] = [
     upper.row,
     {
@@ -657,24 +673,14 @@ function examRows(
       span: true,
       cells: [
         {
-          draw: (width) =>
-            block(
-              width,
-              0,
-              rect({
-                name: 'divisoria',
-                size: { w: ROW.rule.w, h: ROW.rule.h },
-                fill: solid(ink('ink')),
-                transform: { x: ROW.rule.x - NAME_LEFT, y: rule - ruleBand },
-              }),
-            ),
+          draw: (width) => block(width, 0, at(ROW.rule.x - NAME_LEFT, middle - ruleBand, divider)),
         },
       ],
     },
     lower.row,
   ];
   const drawn = table(layout, rows, ROW.facts.x + ROW.facts.width - NAME_LEFT);
-  reportOverflow(context.report, top + upper.height, rule - ROW.ruleClearance);
+  reportOverflow(context.report, top + upper.height, middle - ROW.ruleClearance);
   reportOverflow(context.report, top + drawn.height, bottom);
   return at(NAME_LEFT, top, drawn);
 }
@@ -688,62 +694,56 @@ interface ExamCells {
 /** One exam's row: the crest and name column, and the facts. */
 function examCells(context: TemplateContext, exam: Exam, ink: Ink): ExamCells {
   const name = ROW.name;
-  const namePlaced = {
-    x: NAME_LEFT,
-    size: name.size,
-    lineHeight: name.lineHeight,
-    width: name.width,
-  };
-  const nameDraft = nameText(exam.name, { ...namePlaced, capTop: 0 }, ink);
-  const nameLines = measureText(
-    context,
-    nameDraft,
-    ['Concurso', exam.name],
-    name.size,
-    name.width,
-  ).lines;
+  const nameSet = nameText(
+    exam.name,
+    { size: name.size, lineHeight: name.lineHeight, width: name.width },
+    ink,
+  );
+  const nameLines = laidOut(context, nameSet, ['Concurso', exam.name], name.size, name.width).lines;
   const nameHeight = (nameLines - 1) * name.size * name.lineHeight + name.size * CAP_HEIGHT;
   const crestHeight = exam.crest === undefined ? 0 : ROW.crest.h + name.gap;
   const columnHeight = crestHeight + nameHeight;
 
   const facts = ROW.facts;
-  const runs = factRuns(exam.facts, facts.size, ink);
-  const factsPlaced = {
-    x: facts.x,
-    size: facts.size,
-    lineHeight: facts.lineHeight,
-    width: facts.width,
-  };
-  const factsDraft = textRuns('fatos', runs, { ...factsPlaced, capTop: 0 });
-  const factLines = measureText(
-    context,
-    factsDraft,
-    exam.facts.map(plain),
-    facts.size,
-    facts.width,
-  ).lines;
+  const runs = atLeastOne(factRuns(exam.facts, facts.size, ink));
+  const factsSet =
+    runs === undefined
+      ? undefined
+      : capitals('fatos', runs, {
+          size: facts.size,
+          lineHeight: facts.lineHeight,
+          width: facts.width,
+        });
+  // An exam with no facts draws none, and one line's height still counts, as it always did.
+  const factLines =
+    factsSet === undefined
+      ? 1
+      : laidOut(context, factsSet, exam.facts.map(plain), facts.size, facts.width).lines;
   const factsHeight = (factLines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
 
-  const column: NodeDraft[] = [];
-  if (exam.crest !== undefined) {
-    column.push(crest(exam.crest, { x: ROW.crest.x - NAME_LEFT, y: 0 }, ROW.crest));
-  }
-  column.push(nameText(exam.name, { ...namePlaced, x: 0, capTop: crestHeight }, ink));
+  // The crest's box over the name, the name `gap` under it; with no crest, the name alone.
+  const column = stackIn({ width: name.width, height: Infinity }, [
+    ...(exam.crest === undefined
+      ? []
+      : [
+          block(
+            name.width,
+            ROW.crest.h,
+            at(ROW.crest.x - NAME_LEFT, 0, crest(exam.crest, ROW.crest)),
+          ),
+        ]),
+    { item: fromCapitals(nameSet, name.width, nameHeight), gapAbove: name.gap },
+  ]);
   return {
     row: {
       kind: 'exam',
       cells: [
-        { draw: (width) => block(width, columnHeight, group({ children: column })) },
-        // An exam with no facts draws none, and its facts' height still counts, as it always did.
+        { draw: (width) => block(width, columnHeight, column.draft) },
         {
           draw: (width) =>
-            block(
-              width,
-              factsHeight,
-              runs.length > 0
-                ? textRuns('fatos', runs, { ...factsPlaced, x: 0, capTop: 0 })
-                : group({ children: [] }),
-            ),
+            factsSet === undefined
+              ? block(width, factsHeight, stackIn({ width, height: Infinity }, []).draft)
+              : fromCapitals(factsSet, width, factsHeight),
         },
       ],
     },
@@ -760,165 +760,145 @@ function singleExam(
   lift: number,
 ): NodeDraft[] {
   const name = SINGLE.name;
-  const namePlaced = {
-    x: CENTRE_X - name.width / 2,
-    size: name.size,
-    lineHeight: name.lineHeight,
-    width: name.width,
-  };
-  const nameDraft = nameText(exam.name, { ...namePlaced, capTop: 0 }, ink);
-  const nameLines = measureText(
-    context,
-    nameDraft,
-    ['Concurso', exam.name],
-    name.size,
-    name.width,
-  ).lines;
+  const nameSet = nameText(
+    exam.name,
+    { size: name.size, lineHeight: name.lineHeight, width: name.width },
+    ink,
+  );
+  const nameLines = laidOut(context, nameSet, ['Concurso', exam.name], name.size, name.width).lines;
   const nameHeight = (nameLines - 1) * name.size * name.lineHeight + name.size * CAP_HEIGHT;
 
   const facts = SINGLE.facts;
-  const runs = factRuns(exam.facts, facts.size, ink);
-  const factsDraft = textRuns('fatos', runs, {
-    x: 0,
-    capTop: 0,
-    size: facts.size,
-    lineHeight: facts.lineHeight,
-    width: facts.width,
-  });
-  const measured = measureText(context, factsDraft, exam.facts.map(plain), facts.size, facts.width);
+  const runs = atLeastOne(factRuns(exam.facts, facts.size, ink));
+  const factsSet =
+    runs === undefined
+      ? undefined
+      : capitals('fatos', runs, {
+          size: facts.size,
+          lineHeight: facts.lineHeight,
+          width: facts.width,
+        });
+  const laid =
+    factsSet === undefined
+      ? undefined
+      : laidOut(context, factsSet, exam.facts.map(plain), facts.size, facts.width);
   const factsHeight =
-    runs.length === 0
+    laid === undefined
       ? 0
-      : (measured.lines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
+      : (laid.lines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
 
   const crestHeight = exam.crest === undefined ? 0 : SINGLE.crest.h + name.gap;
-  const factsGap = runs.length === 0 ? 0 : SINGLE.factsGap;
+  const factsGap = factsSet === undefined ? 0 : SINGLE.factsGap;
   const total = crestHeight + nameHeight + factsGap + factsHeight;
   const top = Math.max(room.top, room.centre - total / 2);
 
   const nodes: NodeDraft[] = [];
   if (exam.crest !== undefined) {
-    nodes.push(crest(exam.crest, { x: CENTRE_X - SINGLE.crest.w / 2, y: top }, SINGLE.crest));
+    nodes.push(at(CENTRE_X - SINGLE.crest.w / 2, top, crest(exam.crest, SINGLE.crest)));
   }
   const nameTop = top + crestHeight;
-  nodes.push(nameText(exam.name, { ...namePlaced, capTop: nameTop }, ink));
-  if (runs.length > 0) {
-    // The facts are a left-aligned block, the block centred on the slide.
-    const width = Math.min(facts.width, measured.width);
+  nodes.push(capitalsAt(CENTRE_X - name.width / 2, nameTop, nameSet));
+  if (factsSet !== undefined && laid !== undefined) {
+    // The facts are a left-aligned block, the block centred on the slide by its widest line as
+    // measured: the kit's `huggedText` rounds that width up, which would move the block.
+    const width = Math.min(facts.width, laid.width);
     const factsTop = nameTop + nameHeight + factsGap;
-    nodes.push(
-      textRuns('fatos', runs, {
-        x: CENTRE_X - width / 2,
-        capTop: factsTop,
-        size: facts.size,
-        lineHeight: facts.lineHeight,
-        width: facts.width,
-      }),
-    );
+    nodes.push(capitalsAt(CENTRE_X - width / 2, factsTop, factsSet));
     reportOverflow(context.report, factsTop + factsHeight, CONTENT_BOTTOM - lift);
   }
   return nodes;
 }
 
 /**
- * A crest, contained in its box at the height the reference draws crests, centred in the box
- * whatever its own proportions.
+ * A crest in its box: contained at the height the reference draws crests, whatever its own
+ * proportions, and centred in the box. The kit's picture is held to that one shape.
  */
 function crest(
   asset: AssetRef,
-  origin: { readonly x: number; readonly y: number },
   box: { readonly w: number; readonly h: number; readonly drawn: number },
-): NodeDraft {
-  const margin = (box.h - box.drawn) / 2;
-  return image({
-    name: 'brasao',
+): Block {
+  const held = box.w / box.drawn;
+  const picture = barePicture(
     asset,
-    size: { w: box.w, h: box.drawn },
-    fit: 'contain',
-    transform: { x: origin.x, y: origin.y + margin },
-  });
-}
-
-/* ------------------------------------------------------------------------- the marks -- */
-
-/** The arrow pointing to the next slide: a shaft and a narrow triangular head. */
-function arrow(color: string): NodeDraft {
-  const { w, h, shaft, head } = ARROW;
-  const neck = w - head;
-  const d = `M0 ${shaft.top}H${neck}V0L${w} ${h / 2}L${neck} ${h}V${shaft.top + shaft.h}H0Z`;
-  return vector({
-    name: 'seta',
-    geometry: { kind: 'path', d, fillRule: 'nonzero' },
-    size: { w, h },
-    fill: solid(color),
-    transform: { x: ARROW.x, y: ARROW.y },
-  });
+    { width: box.w, height: box.drawn },
+    { fit: 'contain', widest: held, tallest: held },
+    { name: 'brasao' },
+  );
+  return block(box.w, box.h, at(0, (box.h - box.drawn) / 2, picture));
 }
 
 /* -------------------------------------------------------------------------- the shared -- */
 
-interface Box {
-  readonly x: number;
-  /** Where the capitals start, in the slide's pixels. */
-  readonly capTop: number;
+/** How a text is set: its size, and what the kit's capital-placed text takes besides. */
+interface Setting {
+  readonly size: number;
   readonly lineHeight?: number;
   readonly width?: number;
   readonly align?: 'left' | 'center';
   readonly letterSpacing?: number;
 }
 
-interface Placed extends Box {
-  readonly size: number;
-  readonly weight: number;
-  readonly color: string;
-}
-
-/** A plain text, one run per line, placed by the top of its capitals. */
-function textAt(name: string, words: string, placed: Placed): TextDraft {
-  const style = { font: FACE, size: placed.size, weight: placed.weight, color: placed.color };
-  const [first = '', ...others] = words.split('\n');
-  return textRuns(
-    name,
-    [run(first, style), ...others.flatMap((line) => [lineBreak(), run(line, style)])],
-    placed,
+/** Runs as the kit's block, its anchor at the top of its capitals. */
+function capitals(name: string, runs: NonEmpty<TextRun>, set: Setting): Block {
+  return capText(
+    runs,
+    { width: set.width ?? Infinity, height: Infinity },
+    {
+      size: set.size,
+      lineHeight: set.lineHeight ?? 1,
+      letterSpacing: set.letterSpacing ?? 0,
+      align: set.align ?? 'left',
+    },
+    // Never cut at the box: at a line height of 1 an accented capital on the first line
+    // (the Á of MONGAGUÁ) rises above the line's box, and a clipped box drops the accent.
+    { name, text: { overflow: 'grow' } },
   );
 }
 
-function textRuns(
-  name: string,
-  runs: readonly TextRun[],
-  placed: Box & { readonly size: number },
-): TextDraft {
-  const lineHeight = placed.lineHeight ?? 1;
-  const [head, ...tail] = runs;
-  const empty = run('', { font: FACE, size: placed.size, weight: LIGHT, color: '#000000' });
-  return text({
-    name,
-    runs: [head ?? empty, ...tail],
-    ...(placed.width === undefined ? {} : { box: { w: placed.width } }),
-    align: placed.align ?? 'left',
-    lineHeight,
-    letterSpacing: placed.letterSpacing ?? 0,
-    // Never cut at the box: at a line height of 1 an accented capital on the first line
-    // (the Á of MONGAGUÁ) rises above the line's box, and a clipped box drops the accent.
-    overflow: 'grow',
-    transform: { x: placed.x, y: placed.capTop - capOffset(placed.size, lineHeight) },
-  });
+/** A text placed with its first capitals at `capTop`, in the slide's pixels. */
+function capitalsAt(x: number, capTop: number, set: Block): NodeDraft {
+  return at(x, capTop - anchorOf(set).capTop, set);
+}
+
+/** A text as a block that starts at its first capitals: its line box hangs a cap offset above. */
+function fromCapitals(set: Block, width: number, height: number): Block {
+  return block(width, height, capitalsAt(0, 0, set));
+}
+
+/** What the context measures of a text: its lines and its widest line, unrounded. */
+function measured(
+  context: TemplateContext,
+  set: Block,
+): { lines: number; width: number } | undefined {
+  return set.draft.kind === 'text' ? context.measure(set.draft) : undefined;
 }
 
 /**
  * How many lines a text wraps to and its widest line: measured when the context can, estimated
- * otherwise from the characters a line of `width` holds, each written line counted apart.
+ * otherwise.
  */
-function measureText(
+function laidOut(
   context: TemplateContext,
-  node: NodeDraft,
+  set: Block,
   written: readonly string[],
   size: number,
   width: number,
 ): { lines: number; width: number } {
-  const measured = node.kind === 'text' ? context.measure(node) : undefined;
-  if (measured !== undefined) return { lines: Math.max(1, measured.lines), width: measured.width };
+  const found = measured(context, set);
+  if (found !== undefined) return { lines: Math.max(1, found.lines), width: found.width };
+  return estimated(written, size, width);
+}
+
+/**
+ * The lines and the widest line of a text nothing can measure (a test, CI without the face):
+ * from the characters a line of `width` holds, each written line counted apart. It goes when
+ * the kit estimates by width itself (TYTO-905).
+ */
+function estimated(
+  written: readonly string[],
+  size: number,
+  width: number,
+): { lines: number; width: number } {
   const perLine = Math.max(1, Math.floor(width / (size * ESTIMATED_ADVANCE)));
   let count = 0;
   let widest = 0;
@@ -928,35 +908,4 @@ function measureText(
     widest = Math.max(widest, Math.min(width, characters * size * ESTIMATED_ADVANCE));
   }
   return { lines: Math.max(1, count), width: widest };
-}
-
-/** A word's advance at a weight: measured when the context can, estimated otherwise. */
-function advance(context: TemplateContext, words: string, weight: number, size: number): number {
-  const draft = textAt('medida', words === ' ' ? 'a a' : words, {
-    x: 0,
-    capTop: 0,
-    size,
-    weight,
-    color: '#000000',
-  });
-  const measured = context.measure(draft);
-  if (measured === undefined) return [...words].length * size * ESTIMATED_ADVANCE;
-  if (words !== ' ') return measured.width;
-  // A space's advance: "a a" less two "a".
-  const single = context.measure(
-    textAt('medida', 'aa', { x: 0, capTop: 0, size, weight, color: '#000000' }),
-  );
-  return single === undefined ? size * 0.25 : measured.width - single.width;
-}
-
-/** This slide's written lines as rich text, the empty ones dropped. */
-function slideRichLines(context: TemplateContext): RichText[] {
-  const value = context.slots['lamina']?.value;
-  if (value?.kind !== 'rich-text') return [];
-  return lines(value.text).filter((line) => plain(line).trim() !== '');
-}
-
-/** This slide's written lines as plain text, the empty ones dropped. */
-function slidePlainLines(context: TemplateContext): string[] {
-  return slideRichLines(context).map((line) => plain(line).trim());
 }

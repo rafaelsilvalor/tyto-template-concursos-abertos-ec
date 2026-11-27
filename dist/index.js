@@ -1025,9 +1025,9 @@ function stringifyPrimitive(value) {
     return `"${value}"`;
   return `${value}`;
 }
-function optionalKeys(shape) {
-  return Object.keys(shape).filter((k) => {
-    return shape[k]._zod.optin !== void 0 && shape[k]._zod.optout === "optional";
+function optionalKeys(shape2) {
+  return Object.keys(shape2).filter((k) => {
+    return shape2[k]._zod.optin !== void 0 && shape2[k]._zod.optout === "optional";
   });
 }
 var NUMBER_FORMAT_RANGES = /* @__PURE__ */ (() => ({
@@ -1076,33 +1076,33 @@ function omit(schema, mask) {
   mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)).filter((key) => !omitted.has(key)));
   return clone(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
 }
-function extend(schema, shape) {
-  if (!isPlainObject(shape)) {
+function extend(schema, shape2) {
+  if (!isPlainObject(shape2)) {
     throw new Error("Invalid input to extend: expected a plain object");
   }
   const checks = schema._zod.def.checks;
   const hasChecks = checks && checks.length > 0;
   if (hasChecks) {
     const existingShape = sourceShape(schema);
-    for (const key of Reflect.ownKeys(shape)) {
+    for (const key of Reflect.ownKeys(shape2)) {
       if (Object.getOwnPropertyDescriptor(existingShape, key) !== void 0) {
         throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
       }
     }
   }
-  return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+  return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape2) }));
 }
-function extended(schema, shape) {
+function extended(schema, shape2) {
   const newShape = {};
   mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)));
-  mirrorProps(newShape, shape);
+  mirrorProps(newShape, shape2);
   return newShape;
 }
-function safeExtend(schema, shape) {
-  if (!isPlainObject(shape)) {
+function safeExtend(schema, shape2) {
+  if (!isPlainObject(shape2)) {
     throw new Error("Invalid input to safeExtend: expected a plain object");
   }
-  return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+  return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape2) }));
 }
 function merge(a, b) {
   if (!b?._zod?.def) {
@@ -3550,10 +3550,10 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   }
   const _normalized = cached(() => normalizeDef(def));
   defineLazyInternal(inst, "propValues", (zod) => {
-    const shape = zod.def.shape;
+    const shape2 = zod.def.shape;
     const propValues = {};
-    for (const key in shape) {
-      const field = shape[key]._zod;
+    for (const key in shape2) {
+      const field = shape2[key]._zod;
       if (field.values) {
         if (!Object.prototype.hasOwnProperty.call(propValues, key)) {
           assignProp(propValues, key, /* @__PURE__ */ new Set());
@@ -3585,7 +3585,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     }
     payload.value = memo2 ? memo2.alloc(inst, payload, {}, ctx) : {};
     const proms = [];
-    const shape = value.shape;
+    const shape2 = value.shape;
     const abortEarly = ctx?.abortEarly;
     let seen = payload.issues.length;
     for (const key of value.allKeys) {
@@ -3596,7 +3596,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
       }
       if (key === "__proto__")
         continue;
-      const el = shape[key];
+      const el = shape2[key];
       const optin = el._zod.optin;
       const optout = el._zod.optout;
       const r = el._zod.run({ value: input2[key], issues: [] }, ctx);
@@ -3617,10 +3617,10 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   const superParse = inst._zod.parse;
   const _normalized = cached(() => normalizeDef(def));
   const memo2 = globalConfig.memoizer;
-  const generateFastpass = (shape) => {
+  const generateFastpass = (shape2) => {
     const normalized = _normalized.value;
     const syms = normalized.symbolKeys;
-    const doc = new Doc(["payload", "ctx"], { shape, inst, memo: memo2, syms });
+    const doc = new Doc(["payload", "ctx"], { shape: shape2, inst, memo: memo2, syms });
     const parseStr = (k) => `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
     const prefixStr = (id, k) => `
           let ${id}_ab = false;
@@ -3647,7 +3647,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
       const id = ids[key];
       const k = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
       const isPresent = `${k} in input`;
-      const schema = shape[key];
+      const schema = shape2[key];
       const optin = schema?._zod?.optin;
       const isOptionalIn = optin !== void 0;
       const isOptionalOut = schema?._zod?.optout === "optional";
@@ -5086,7 +5086,7 @@ function isRecursive(inst, stack2, resolve) {
         result = answer;
     }
   };
-  const shape = (sh, spread) => {
+  const shape2 = (sh, spread) => {
     let answer = NONE;
     for (const key of Reflect.ownKeys(sh)) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
@@ -5107,7 +5107,7 @@ function isRecursive(inst, stack2, resolve) {
   switch (kind) {
     case "object": {
       const raw = rawShape(def);
-      merge2(raw ? shape(raw, true) : ASSUMED);
+      merge2(raw ? shape2(raw, true) : ASSUMED);
       check2(def.catchall);
       break;
     }
@@ -13318,12 +13318,12 @@ function generatePropertiesChecks(doc, ctx, def, accessor) {
     throw new ZodCompileUnsupportedError(`check with a custom "when" condition`);
   }
   doc.write(`if (${accessor} == null) return INVALID;`);
-  const shape = def.shape;
-  for (const key of Reflect.ownKeys(shape)) {
+  const shape2 = def.shape;
+  for (const key of Reflect.ownKeys(shape2)) {
     const keyExpr = typeof key === "symbol" ? addConstant(ctx, key) : esc(key);
     const inputVar = newVar(ctx);
     doc.write(`const ${inputVar} = ${accessor}[${keyExpr}];`);
-    compileChild(doc, ctx, shape[key], inputVar, false);
+    compileChild(doc, ctx, shape2[key], inputVar, false);
   }
 }
 function generatePropertyCheck(doc, ctx, def, accessor) {
@@ -13705,13 +13705,13 @@ function generateDateCheck(doc, accessor) {
 function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
   const def = schema._zod.def;
   doc.write(`if (typeof ${accessor} !== "object" || ${accessor} === null || Array.isArray(${accessor})) return INVALID;`);
-  const shape = def.shape;
-  const keys = Object.keys(shape);
-  const symbolKeys = Object.getOwnPropertySymbols(shape);
+  const shape2 = def.shape;
+  const keys = Object.keys(shape2);
+  const symbolKeys = Object.getOwnPropertySymbols(shape2);
   const allKeys = symbolKeys.length ? [...keys, ...symbolKeys] : keys;
   const keyExpr = (k) => typeof k === "symbol" ? addConstant(ctx, k) : esc(k);
   const propKey = (k) => typeof k === "symbol" ? `[${keyExpr(k)}]` : esc(k);
-  const propShape = shape;
+  const propShape = shape2;
   if (keys.includes("__proto__")) {
     throw new ZodCompileUnsupportedError('object shape key "__proto__"');
   }
@@ -15218,10 +15218,10 @@ function _property(property, schema, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
-function _properties(shape, params) {
+function _properties(shape2, params) {
   return new $ZodCheckProperties({
     check: "properties",
-    shape,
+    shape: shape2,
     ...normalizeParams(params)
   });
 }
@@ -16483,21 +16483,21 @@ function inputOptin(schema) {
 var objectProcessor = (schema, ctx, _json, params) => {
   const json2 = _json;
   const def = schema._zod.def;
-  const shape = def.shape;
-  const symbolKeys = Object.getOwnPropertySymbols(shape);
+  const shape2 = def.shape;
+  const symbolKeys = Object.getOwnPropertySymbols(shape2);
   if (symbolKeys.length && handleUnrepresentable(schema, ctx, json2, params, "Symbol keys cannot be represented in JSON Schema")) {
     return;
   }
   json2.type = "object";
   json2.properties = {};
-  for (const key in shape) {
-    assignProp(json2.properties, key, processSchema(shape[key], ctx, {
+  for (const key in shape2) {
+    assignProp(json2.properties, key, processSchema(shape2[key], ctx, {
       ...params,
       path: [...params.path, "properties", key]
     }));
   }
   const requiredKeys = [];
-  for (const key of Object.keys(shape)) {
+  for (const key of Object.keys(shape2)) {
     const field = def.shape[key];
     if (ctx.io === "input" ? inputOptin(field) === void 0 : field._zod.optout === void 0) {
       requiredKeys.push(key);
@@ -18059,8 +18059,8 @@ function array(element, params) {
   return _array(ZodArray, element, params);
 }
 function keyof(schema) {
-  const shape = schema._zod.def.shape;
-  return _enum2(Object.keys(shape));
+  const shape2 = schema._zod.def.shape;
+  return _enum2(Object.keys(shape2));
 }
 var ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   _ensureDefaultMemoizer();
@@ -18112,26 +18112,26 @@ var ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
     return util_exports.required(ZodNonOptional, this, args[0]);
   }
 });
-function object(shape, params) {
+function object(shape2, params) {
   const def = {
     type: "object",
-    shape: shape ?? {},
+    shape: shape2 ?? {},
     ...util_exports.normalizeParams(params)
   };
   return new ZodObject(def);
 }
-function strictObject(shape, params) {
+function strictObject(shape2, params) {
   return new ZodObject({
     type: "object",
-    shape,
+    shape: shape2,
     catchall: never(),
     ...util_exports.normalizeParams(params)
   });
 }
-function looseObject(shape, params) {
+function looseObject(shape2, params) {
   return new ZodObject({
     type: "object",
-    shape,
+    shape: shape2,
     catchall: unknown(),
     ...util_exports.normalizeParams(params)
   });
@@ -18670,8 +18670,8 @@ var meta2 = meta;
 var ZodInstanceOf = /* @__PURE__ */ $constructor("ZodInstanceOf", (inst, def) => {
   ZodCustom.init(inst, def);
 }, {
-  properties(shape, params) {
-    return this.check(_properties(shape, params));
+  properties(shape2, params) {
+    return this.check(_properties(shape2, params));
   }
 });
 function _instanceof(cls, params = {}) {
@@ -19257,13 +19257,13 @@ function convertBaseSchema(schema, ctx) {
       break;
     }
     case "object": {
-      const shape = {};
+      const shape2 = {};
       const properties = schema.properties || {};
       const requiredSet = new Set(schema.required || []);
       const additionalSchema = typeof schema.additionalProperties === "object" ? convertSchema(schema.additionalProperties, ctx) : void 0;
       for (const [key, propSchema] of Object.entries(properties)) {
         const propZodSchema = convertSchema(propSchema, ctx);
-        assignProp(shape, key, requiredSet.has(key) ? propZodSchema : propZodSchema.optional());
+        assignProp(shape2, key, requiredSet.has(key) ? propZodSchema : propZodSchema.optional());
       }
       if (schema.patternProperties) {
         const patternProps = schema.patternProperties;
@@ -19275,8 +19275,8 @@ function convertBaseSchema(schema, ctx) {
           looseRecords.push(z.looseRecord(keySchema, patternValue));
         }
         const schemasToIntersect = [];
-        if (Object.keys(shape).length > 0) {
-          schemasToIntersect.push(z.object(shape).passthrough());
+        if (Object.keys(shape2).length > 0) {
+          schemasToIntersect.push(z.object(shape2).passthrough());
         }
         schemasToIntersect.push(...looseRecords);
         if (schemasToIntersect.length === 0) {
@@ -19291,7 +19291,7 @@ function convertBaseSchema(schema, ctx) {
           zodSchema = result;
         }
         if (schema.additionalProperties === false) {
-          const propertyKeys = Object.keys(shape);
+          const propertyKeys = Object.keys(shape2);
           const patterns = patternKeys.map((p) => new RegExp(p));
           const basePatternSchema = zodSchema;
           zodSchema = zodSchema.check((payload) => {
@@ -19316,7 +19316,7 @@ function convertBaseSchema(schema, ctx) {
           });
         }
       } else {
-        const objectSchema = z.object(shape);
+        const objectSchema = z.object(shape2);
         if (schema.additionalProperties === false) {
           zodSchema = objectSchema.strict();
         } else if (additionalSchema) {
@@ -22520,6 +22520,9 @@ function offsetFor(align, room, size) {
 function block(width, height, draft) {
   return { width, height, draft };
 }
+function sized(draft) {
+  return { width: draft.size.w, height: draft.size.h, draft };
+}
 function stack(options) {
   return blockOnly(
     stackIn(
@@ -22598,6 +22601,123 @@ function at(x, y, item) {
 function groupOf(children, name) {
   return group({ children, ...name === void 0 ? {} : { name } });
 }
+var DEFAULT_METRICS = { ascent: 0.75, descent: 0.25, capHeight: 0.709 };
+function capOffset(size, lineHeight, metrics = DEFAULT_METRICS) {
+  const excess = (lineHeight - (metrics.ascent + metrics.descent)) / 2;
+  return size * (excess + (metrics.ascent - metrics.capHeight));
+}
+var CAP_TEXT_PARAMETERS = {
+  size: { kind: "length", default: 32, min: 1, description: "The type size, in px." },
+  lineHeight: {
+    kind: "ratio",
+    default: 1,
+    min: 0.5,
+    description: "From one line to the next, as a multiple of the size."
+  },
+  letterSpacing: {
+    kind: "length",
+    default: 0,
+    description: "Space added between letters, in px."
+  },
+  align: {
+    kind: "choice",
+    default: "left",
+    choices: ["left", "center", "right"],
+    description: "Where each line sits across the block."
+  }
+};
+function capText(runs, area, given = {}, options = {}) {
+  const values = parameterValues(CAP_TEXT_PARAMETERS, given);
+  const metrics = options.metrics ?? DEFAULT_METRICS;
+  const box = Number.isFinite(area.width) ? { box: { w: area.width } } : {};
+  const node2 = text({
+    ...options.text,
+    ...options.name === void 0 ? {} : { name: options.name },
+    runs,
+    ...box,
+    align: values.align,
+    lineHeight: values.lineHeight,
+    letterSpacing: values.letterSpacing
+  });
+  const lines2 = options.lines ?? options.measure?.(node2)?.lines ?? linesWritten(runs);
+  const pitch = values.size * values.lineHeight;
+  const capTop = capOffset(values.size, values.lineHeight, metrics);
+  return {
+    ...block(Number.isFinite(area.width) ? area.width : 0, lines2 * pitch, node2),
+    anchor: { capTop, baseline: capTop + (lines2 - 1) * pitch + values.size * metrics.capHeight }
+  };
+}
+function linesWritten(runs) {
+  return runs.filter((each) => each.kind === "break").length + 1;
+}
+function plainRuns(words, style2) {
+  const [first = "", ...others] = words.split("\n");
+  return [run(first, style2), ...others.flatMap((line) => [lineBreak(), run(line, style2)])];
+}
+function richTextOfPlain(source) {
+  const inlines = [];
+  let literalStart = 0;
+  let literal2 = "";
+  const flush = (end) => {
+    if (literal2 !== "") {
+      inlines.push({ kind: "text", value: literal2, range: { start: literalStart, end } });
+    }
+    literal2 = "";
+  };
+  const textAt = (value, start) => ({
+    kind: "text",
+    value,
+    range: { start, end: start + value.length }
+  });
+  let at2 = 0;
+  while (at2 < source.length) {
+    if (source.startsWith("**", at2)) {
+      const close = source.indexOf("**", at2 + 2);
+      const inner = close < 0 ? "" : source.slice(at2 + 2, close);
+      if (inner !== "" && !inner.includes("\n")) {
+        flush(at2);
+        inlines.push({
+          kind: "bold",
+          children: [textAt(inner, at2 + 2)],
+          range: { start: at2, end: close + 2 }
+        });
+        at2 = close + 2;
+        literalStart = at2;
+        continue;
+      }
+    }
+    const opening = /^\{([\p{L}\d-]+):([^{}\n]+)\}/u.exec(source.slice(at2));
+    if (opening !== null) {
+      const contentStart = at2 + opening[0].length;
+      const close = source.indexOf("{/}", contentStart);
+      const inner = close < 0 ? "" : source.slice(contentStart, close);
+      if (inner !== "" && !inner.includes("\n") && !inner.includes("{")) {
+        flush(at2);
+        inlines.push({
+          kind: "mark",
+          key: opening[1],
+          value: opening[2],
+          children: [textAt(inner, contentStart)],
+          range: { start: at2, end: close + 3 }
+        });
+        at2 = close + 3;
+        literalStart = at2;
+        continue;
+      }
+    }
+    if (source[at2] === "\n") {
+      flush(at2);
+      inlines.push({ kind: "break", range: { start: at2, end: at2 + 1 } });
+      at2 += 1;
+      literalStart = at2;
+      continue;
+    }
+    literal2 += source[at2];
+    at2 += 1;
+  }
+  flush(at2);
+  return inlines;
+}
 function lines(text5) {
   const result = [];
   let current = [];
@@ -22624,6 +22744,112 @@ function plain(text5) {
     }
   }).join("");
 }
+function richTextOf(context, name) {
+  const value = context.slots[name]?.value;
+  return value?.kind === "rich-text" ? value.text : void 0;
+}
+function slideRichLines(context, name = "lamina") {
+  const written = richTextOf(context, name);
+  if (written === void 0) return [];
+  return lines(written).filter((line) => plain(line).trim() !== "");
+}
+var SHAPE_PARAMETERS = {
+  kind: {
+    kind: "choice",
+    default: "rect",
+    choices: ["rect", "rounded", "capsule", "circle"],
+    description: "A rectangle, one with rounded corners, one rounded whole at its short ends, or a circle."
+  },
+  radius: {
+    kind: "length",
+    default: 0,
+    min: 0,
+    description: "The corners' radius for `rounded`; the others ignore it."
+  }
+};
+function shape(size, fill, given = {}, options = {}) {
+  const values = parameterValues(SHAPE_PARAMETERS, given);
+  const box = values.kind === "circle" ? { w: size.w, h: size.w } : size;
+  const radius = values.kind === "rounded" ? values.radius : values.kind === "capsule" ? Math.min(box.w, box.h) / 2 : values.kind === "circle" ? box.w / 2 : 0;
+  return sized(
+    rect({
+      ...options.name === void 0 ? {} : { name: options.name },
+      size: box,
+      ...radius === 0 ? {} : { radius },
+      ...fill === void 0 ? {} : { fill },
+      ...options.outline === void 0 ? {} : {
+        stroke: {
+          paint: options.outline.paint,
+          width: options.outline.width,
+          align: options.outline.align ?? "center"
+        }
+      }
+    })
+  );
+}
+var RULE_PARAMETERS = {
+  thickness: { kind: "length", default: 1, min: 0, description: "The line's thickness, in px." },
+  direction: {
+    kind: "choice",
+    default: "horizontal",
+    choices: ["horizontal", "vertical", "diagonal-down", "diagonal-up"],
+    description: "Across, down, or at 45\xB0 falling or rising to the right."
+  }
+};
+function rule(length, paint, given = {}, options = {}) {
+  const values = parameterValues(RULE_PARAMETERS, given);
+  const name = options.name === void 0 ? {} : { name: options.name };
+  if (values.direction === "horizontal" || values.direction === "vertical") {
+    const across = values.direction === "horizontal";
+    return sized(
+      rect({
+        ...name,
+        size: across ? { w: length, h: values.thickness } : { w: values.thickness, h: length },
+        fill: paint
+      })
+    );
+  }
+  const d = values.direction === "diagonal-down" ? `M0 0L${length} ${length}` : `M0 ${length}L${length} 0`;
+  return sized(
+    vector({
+      ...name,
+      geometry: { kind: "path", d, fillRule: "nonzero" },
+      size: { w: length, h: length },
+      stroke: { paint, width: values.thickness, align: "center" }
+    })
+  );
+}
+var ARROW_SHAPE_PARAMETERS = {
+  shaft: { kind: "length", default: 9, min: 0, description: "The shaft's thickness, in px." },
+  headRatio: {
+    kind: "ratio",
+    default: 0.64,
+    min: 0,
+    description: "The head's length as a share of the arrow's height, rounded to a whole px."
+  }
+};
+function arrowPath(size, shaft, headRatio) {
+  const head = Math.round(size.h * headRatio);
+  const top = (size.h - shaft) / 2;
+  const neck = size.w - head;
+  return `M0 ${top}H${neck}V0L${size.w} ${size.h / 2}L${neck} ${size.h}V${top + shaft}H0Z`;
+}
+function arrowShape(size, paint, given = {}, options = {}) {
+  const values = parameterValues(ARROW_SHAPE_PARAMETERS, given);
+  return sized(
+    vector({
+      ...options.name === void 0 ? {} : { name: options.name },
+      geometry: {
+        kind: "path",
+        d: arrowPath(size, values.shaft, values.headRatio),
+        fillRule: "nonzero"
+      },
+      size,
+      fill: paint
+    })
+  );
+}
+var NO_BREAK_SPACE = "\xA0";
 var NUMBER = String.raw`\d[\d.,]*`;
 var UNITS = [
   "s",
@@ -22676,6 +22902,15 @@ var KEEP_TOGETHER_RULES = [
     after: String.raw`(?:${UNITS.join("|")})(?!\p{L})`
   }
 ];
+function keepTogetherText(text5, rules = KEEP_TOGETHER_RULES) {
+  return rules.reduce(
+    (glued, rule2) => glued.replace(
+      new RegExp(`(?<=${rule2.before})( +)(?=${rule2.after})`, "gu"),
+      (spaces) => NO_BREAK_SPACE.repeat(spaces.length)
+    ),
+    text5
+  );
+}
 var LONGEST_LABEL = 40;
 var LABEL_EXCEPTIONS = [
   { name: "a time", pattern: String.raw`\d{1,2}:\d{2}` },
@@ -22699,6 +22934,15 @@ function separatorAt(line, options) {
   if (label.includes("\n") || label.trim() === "") return void 0;
   if ([...label.trim()].length > (options.longestLabel ?? LONGEST_LABEL)) return void 0;
   return at2;
+}
+function labelOfText(line, options = {}) {
+  const at2 = separatorAt(line, options);
+  if (at2 === void 0) return { label: void 0, text: line };
+  const end = at2 + (options.separator ?? ":").length;
+  return {
+    label: line.slice(0, options.keepSeparator === false ? at2 : end),
+    text: line.slice(end)
+  };
 }
 function labelOf(line, options = {}) {
   const at2 = separatorAt(flatten2(line), options);
@@ -22788,6 +23032,10 @@ function markIn(shape2, area, fill, given = {}, options = {}) {
     overflow: Number.isFinite(area.width) ? Math.max(0, width - area.width) : 0
   };
 }
+function atLeastOne(runs) {
+  const [first, ...rest] = runs;
+  return first === void 0 ? void 0 : [first, ...rest];
+}
 var TEXT_PARAMETERS = {
   lineHeight: {
     kind: "ratio",
@@ -22824,6 +23072,11 @@ var GROWN_TEXT_PARAMETERS = {
     description: "The least height the block takes, in px, however few its lines."
   }
 };
+function imageHeight(asset, width, fallback) {
+  const size = asset?.size;
+  if (size === void 0 || !(size.w > 0) || !(size.h > 0)) return fallback;
+  return width * size.h / size.w;
+}
 function sealed(size, seal) {
   if (seal === void 0) return { size, seal: [] };
   const band = { w: size.w, h: seal.height };
@@ -22928,6 +23181,46 @@ var FITTED_COLUMN_PARAMETERS = {
     description: "The most letter spacing, in em, a text may take or give for the same."
   }
 };
+var LABEL_VALUE_PARAMETERS = {
+  unlabelled: {
+    kind: "choice",
+    default: "value",
+    choices: ["label", "value"],
+    description: "The style a line with no label is drawn in, whole."
+  },
+  labelGap: {
+    kind: "choice",
+    default: "one-space",
+    choices: ["as-written", "one-space"],
+    description: "`as-written`: the label and the value as the line splits them, an empty value left out. `one-space`: both trimmed, the label followed by one space, the value always written, and a line with no label trimmed."
+  },
+  keepTogether: {
+    kind: "choice",
+    default: "no",
+    choices: ["yes", "no"],
+    description: "Whether the kit's no-break rules (`keepTogetherText`: a currency sign and its amount) are applied to each line before it is split."
+  }
+};
+function labelValueRuns(lines2, styles, given = {}, options = {}) {
+  const values = parameterValues(LABEL_VALUE_PARAMETERS, given);
+  const trimmed3 = values.labelGap === "one-space";
+  const glue = options.value ?? ((value) => value);
+  return lines2.flatMap((written, index) => {
+    const line = values.keepTogether === "yes" ? keepTogetherText(written) : written;
+    const { label, text: text5 } = labelOfText(line);
+    const opening = index > 0 ? [lineBreak()] : [];
+    if (label === void 0) {
+      const style2 = values.unlabelled === "label" ? styles.label : styles.value;
+      return [...opening, run(trimmed3 ? line.trim() : line, style2)];
+    }
+    const value = trimmed3 ? text5.replace(/^\s+/, "") : text5;
+    return [
+      ...opening,
+      run(trimmed3 ? `${label.trim()} ` : label, styles.label),
+      ...!trimmed3 && value === "" ? [] : [run(glue(value), styles.value)]
+    ];
+  });
+}
 var PICTURE_SHAPE_PARAMETERS = {
   widest: {
     kind: "ratio",
@@ -22954,6 +23247,19 @@ var PICTURE_SHAPE_PARAMETERS = {
     description: "How the file fills the picture: `auto` covers it when the picture took the file\u2019s own shape and fits it whole otherwise."
   }
 };
+var BARE_PICTURE_PARAMETERS = PICTURE_SHAPE_PARAMETERS;
+function pictureSize(asset, width, cap, values) {
+  const natural = imageHeight(asset, width, width / values.fallback);
+  const capped = Math.min(natural, cap);
+  const clamped = Math.min(width / values.tallest, Math.max(width / values.widest, capped));
+  const fit = values.fit === "auto" ? clamped === natural ? "cover" : "contain" : values.fit;
+  return { size: { w: width, h: Math.round(clamped) }, fit };
+}
+function barePicture(asset, area, given = {}, options = {}) {
+  const values = parameterValues(BARE_PICTURE_PARAMETERS, given);
+  const { size, fit } = pictureSize(asset, area.width, area.height, values);
+  return sized(image({ name: options.name ?? "image", asset, size, fit }));
+}
 var FRAMED_PICTURE_PARAMETERS = {
   ...PICTURE_SHAPE_PARAMETERS,
   border: {
@@ -22988,6 +23294,82 @@ var FRAMED_PICTURE_PARAMETERS = {
     description: "How much wider than the frame the shadow is on every side; below 0, narrower."
   }
 };
+var SIGNATURE_LINE_PARAMETERS = {
+  size: { kind: "length", default: 24, min: 1, description: "The type size, in px." },
+  letterSpacing: {
+    kind: "length",
+    default: 0,
+    description: "Space added between letters, in px."
+  },
+  lineHeight: {
+    kind: "ratio",
+    default: 1,
+    min: 0.5,
+    description: "The line's height, as a multiple of the size."
+  },
+  align: {
+    kind: "choice",
+    default: "center",
+    choices: ["left", "center", "right"],
+    description: "Where the line sits across its area."
+  }
+};
+function signatureLine(words, area, style2, given = {}, options = {}) {
+  const values = parameterValues(SIGNATURE_LINE_PARAMETERS, given);
+  return capText(plainRuns(words, { ...style2, size: values.size }), area, values, {
+    name: options.name ?? "signature",
+    ...options.metrics === void 0 ? {} : { metrics: options.metrics },
+    ...options.text === void 0 ? {} : { text: options.text }
+  });
+}
+var CAROUSEL_FOOTER_PARAMETERS = {
+  signatureFromFoot: {
+    kind: "length",
+    default: 72,
+    description: "From the page's foot up to the top of the signature's capitals, in px."
+  },
+  leadingFromFoot: {
+    kind: "length",
+    default: 48,
+    description: "From the page's foot up to the leading piece's foot, in px."
+  },
+  leadingInset: {
+    kind: "length",
+    default: 64,
+    description: "From the page's left edge to the leading piece, in px."
+  },
+  trailingFromFoot: {
+    kind: "length",
+    default: 48,
+    description: "From the page's foot up to the trailing piece's foot, in px."
+  },
+  trailingInset: {
+    kind: "length",
+    default: 64,
+    description: "From the page's right edge to the trailing piece, in px."
+  }
+};
+function carouselFooter(page, pieces, given = {}, options = {}) {
+  const values = parameterValues(CAROUSEL_FOOTER_PARAMETERS, given);
+  const foot = page.height;
+  const { signature, leading, trailing } = pieces;
+  const children = [
+    ...leading === void 0 ? [] : [at(values.leadingInset, foot - values.leadingFromFoot - leading.height, leading)],
+    at(0, foot - values.signatureFromFoot - anchorOf(signature).capTop, signature),
+    ...trailing === void 0 ? [] : [
+      at(
+        page.width - values.trailingInset - trailing.width,
+        foot - values.trailingFromFoot - trailing.height,
+        trailing
+      )
+    ]
+  ];
+  return {
+    width: page.width,
+    height: page.height,
+    draft: group({ name: options.name ?? "footer", children })
+  };
+}
 var NO_PADDING = { top: 0, bottom: 0, left: 0, right: 0 };
 function table(style2, rows, width) {
   const drawn = tableIn({ width, height: Infinity }, style2, rows);
@@ -23120,7 +23502,7 @@ function cornersOf(style2, column, edges, left, right) {
   return tuple2.every((each) => each === 0) ? void 0 : tuple2;
 }
 function drawRow(style2, placed, row2, count, edges, width) {
-  const measured = placed.map((cell) => {
+  const measured2 = placed.map((cell) => {
     const content = row2.cells[cell.index];
     if (content === void 0) return void 0;
     const padding = paddingOf(cell.column);
@@ -23129,7 +23511,7 @@ function drawRow(style2, placed, row2, count, edges, width) {
   const height = placed.reduce(
     (tallest, cell, index) => {
       const content = row2.cells[cell.index];
-      const own2 = measured[index];
+      const own2 = measured2[index];
       if (content === void 0 || own2 === void 0 || content.sizesRow === false) {
         return tallest;
       }
@@ -23188,10 +23570,10 @@ function drawBand(style2, placed, row2, count, edges, width) {
   };
   const innerWidth = width - padding.left - padding.right;
   const content = row2.cells[0];
-  const measured = content?.draw(innerWidth);
+  const measured2 = content?.draw(innerWidth);
   const height = Math.max(
     minHeightOf(style2, row2.kind),
-    measured === void 0 || content?.sizesRow === false ? 0 : measured.height + padding.top + padding.bottom
+    measured2 === void 0 || content?.sizesRow === false ? 0 : measured2.height + padding.top + padding.bottom
   );
   const innerHeight = height - padding.top - padding.bottom;
   const drawn = content?.draw(innerWidth, innerHeight);
@@ -23254,19 +23636,19 @@ var PLACEHOLDER_LOGO = {
   fillRule: "evenodd"
 };
 var PLACEHOLDER_SIGNATURE = "@assinatura";
-function drawBrandMark(shape, height, inks, name) {
-  if (!isTonedMark(shape)) return mark(shape, height, inks.primary, name);
-  const scale = height / shape.box.h;
+function drawBrandMark(shape2, height, inks, name) {
+  if (!isTonedMark(shape2)) return mark(shape2, height, inks.primary, name);
+  const scale = height / shape2.box.h;
   return block(
-    shape.box.w * scale,
+    shape2.box.w * scale,
     height,
     group({
       name,
-      children: shape.layers.map(
+      children: shape2.layers.map(
         (layer) => vector({
           name: `${name}-${layer.tone}`,
           geometry: { kind: "path", d: layer.d, fillRule: layer.fillRule },
-          size: shape.box,
+          size: shape2.box,
           fill: solid(inks[layer.tone]),
           transform: { scaleX: scale, scaleY: scale }
         })
@@ -23354,13 +23736,9 @@ var FACE2 = { family: "CircularXX", source: "system" };
 var LIGHT = 300;
 var MEDIUM = 500;
 var BLACK = 900;
-var ASCENT = 0.75;
-var DESCENT = 0.25;
 var CAP_HEIGHT = 0.709;
-function capOffset(size, lineHeight) {
-  return size * ((lineHeight - (ASCENT + DESCENT)) / 2 + (ASCENT - CAP_HEIGHT));
-}
 var SLIDE_WIDTH = 1080;
+var SLIDE_HEIGHT = 1350;
 var CENTRE_X = SLIDE_WIDTH / 2;
 var ESTIMATED_ADVANCE = 0.55;
 var DEFAULT_COVER = ["Principais concursos abertos com inscri\xE7\xF5es", "nesta semana"];
@@ -23417,7 +23795,7 @@ var SIGN_OFF = {
 };
 var SIGNATURE2 = { size: 24, capTop: 1271, letterSpacing: 9.6 };
 var LOGO = { x: 85, y: 67, height: 63 };
-var ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: { top: 9, h: 8 }, head: 15 };
+var ARROW = { x: 798, y: 1269, w: 186, h: 26, shaft: 8, head: 15 };
 var CONTENT_BOTTOM = 1240;
 var CONTENT = {
   titleGap: 54,
@@ -23450,34 +23828,57 @@ var build = (context) => {
         LOGO.y,
         drawLogo(context.brand, LOGO.height, { primary: ink("ink"), secondary: ink("ink") })
       ),
-      textAt("assinatura", signatureOf(context.brand), {
-        x: 0,
-        capTop: SIGNATURE2.capTop - lift,
-        size: SIGNATURE2.size,
-        weight: LIGHT,
-        color: ink("ink"),
-        width: SLIDE_WIDTH,
-        align: "center",
-        letterSpacing: SIGNATURE2.letterSpacing
-      }),
-      ...last ? [] : [arrow(ink("arrow-ink"))],
+      footer(context, { width: page.size.w, height: page.size.h }, ink, last),
       ...page.seal
     ]
   });
 };
+function footer(context, page, ink, last) {
+  const line = signatureLine(
+    signatureOf(context.brand),
+    { width: SLIDE_WIDTH, height: Infinity },
+    { font: FACE2, weight: LIGHT, color: ink("ink") },
+    { size: SIGNATURE2.size, letterSpacing: SIGNATURE2.letterSpacing },
+    { name: "assinatura", text: { overflow: "grow" } }
+  );
+  const arrow = arrowShape(
+    { w: ARROW.w, h: ARROW.h },
+    solid(ink("arrow-ink")),
+    { shaft: ARROW.shaft, headRatio: ARROW.head / ARROW.h },
+    { name: "seta" }
+  );
+  return at(
+    0,
+    0,
+    carouselFooter(
+      page,
+      { signature: line, ...last ? {} : { trailing: arrow } },
+      {
+        signatureFromFoot: SLIDE_HEIGHT - SIGNATURE2.capTop,
+        trailingFromFoot: SLIDE_HEIGHT - (ARROW.y + ARROW.h),
+        trailingInset: SLIDE_WIDTH - (ARROW.x + ARROW.w)
+      },
+      { name: "rodape" }
+    )
+  );
+}
 function cover(context, ink) {
-  const written = slidePlainLines(context);
+  const written = slideRichLines(context).map((line) => plain(line).trim());
   const [titleLines, bandLine] = splitCover(written.length === 0 ? DEFAULT_COVER : written);
-  const style2 = { size: COVER.size, lineHeight: COVER.lineHeight, width: COVER.width };
-  const title = textAt("capa-titulo", titleLines.join("\n"), {
-    ...style2,
-    x: CENTRE_X - COVER.width / 2,
-    capTop: 0,
-    weight: BLACK,
-    color: ink("ink"),
+  const set2 = {
+    size: COVER.size,
+    lineHeight: COVER.lineHeight,
+    width: COVER.width,
     align: "center"
-  });
-  const measuredTitle = measureText(context, title, titleLines, COVER.size, COVER.width);
+  };
+  const style2 = { font: FACE2, size: COVER.size, weight: BLACK };
+  const left = CENTRE_X - COVER.width / 2;
+  const title = capitals(
+    "capa-titulo",
+    plainRuns(titleLines.join("\n"), { ...style2, color: ink("ink") }),
+    set2
+  );
+  const measuredTitle = laidOut(context, title, titleLines, COVER.size, COVER.width);
   const titleCount = titleLines.length === 0 ? 0 : measuredTitle.lines;
   const pitch = COVER.size * COVER.lineHeight;
   const capHeight = COVER.size * CAP_HEIGHT;
@@ -23485,38 +23886,23 @@ function cover(context, ink) {
   const blockHeight = titleCount * pitch + (bandLine === void 0 ? capHeight - pitch : capHeight + COVER.bandUnder);
   const top = COVER.centre - blockHeight / 2;
   const nodes = [];
-  if (titleCount > 0) {
-    nodes.push(
-      textAt("capa-titulo", titleLines.join("\n"), {
-        ...style2,
-        x: CENTRE_X - COVER.width / 2,
-        capTop: top,
-        weight: BLACK,
-        color: ink("ink"),
-        align: "center"
-      })
-    );
-  }
+  if (titleCount > 0) nodes.push(capitalsAt(left, top, title));
   if (bandLine !== void 0) {
     const capTop = top + titleCount * pitch;
-    const band = textAt("capa-faixa-texto", bandLine, {
-      ...style2,
-      x: CENTRE_X - COVER.width / 2,
-      capTop,
-      weight: BLACK,
-      color: ink("on-ink"),
-      align: "center"
-    });
-    const bandWidth = measureText(context, band, [bandLine], COVER.size, COVER.width).width;
+    const band = capitals(
+      "capa-faixa-texto",
+      plainRuns(bandLine, { ...style2, color: ink("on-ink") }),
+      set2
+    );
+    const bandWidth = laidOut(context, band, [bandLine], COVER.size, COVER.width).width;
     const width = Math.max(measuredTitle.width, bandWidth) - 2 * COVER.bandInset;
     nodes.push(
-      rect({
-        name: "capa-faixa",
-        size: { w: width, h: bandHeight },
-        fill: solid(ink("ink")),
-        transform: { x: CENTRE_X - width / 2, y: capTop - COVER.bandOver }
-      }),
-      band
+      at(
+        CENTRE_X - width / 2,
+        capTop - COVER.bandOver,
+        shape({ w: width, h: bandHeight }, solid(ink("ink")), {}, { name: "capa-faixa" })
+      ),
+      capitalsAt(left, capTop, band)
     );
   }
   return nodes;
@@ -23527,10 +23913,20 @@ function splitCover(written) {
 }
 function signOff(context, ink) {
   const written = slideRichLines(context);
-  const source = written.length === 0 ? DEFAULT_SIGN_OFF : void 0;
-  const words = source === void 0 ? wordsOfRich(written) : wordsOfMarkdown(source);
-  const space = advance(context, " ", LIGHT, SIGN_OFF.size);
-  const widthOf = (word) => word.boxed ? advance(context, word.words, BLACK, SIGN_OFF.size) + 2 * SIGN_OFF.box.padX : advance(context, word.words, LIGHT, SIGN_OFF.size);
+  const words = wordsOf(written.length === 0 ? [richTextOfPlain(DEFAULT_SIGN_OFF)] : written);
+  const piece = (name, text2, weight, color2) => capitals(name, plainRuns(text2, { font: FACE2, size: SIGN_OFF.size, weight, color: color2 }), {
+    size: SIGN_OFF.size
+  });
+  const advance = (text2, weight) => {
+    const measure = (sample) => measured(context, piece("medida", sample, weight, "#000000"))?.width;
+    const width = measure(text2 === " " ? "a a" : text2);
+    if (width === void 0) return [...text2].length * SIGN_OFF.size * ESTIMATED_ADVANCE;
+    if (text2 !== " ") return width;
+    const single = measure("aa");
+    return single === void 0 ? SIGN_OFF.size * 0.25 : width - single;
+  };
+  const space = advance(" ", LIGHT);
+  const widthOf = (word) => word.boxed ? advance(word.words, BLACK) + 2 * SIGN_OFF.box.padX : advance(word.words, LIGHT);
   const rows = [];
   let row = [];
   let rowWidth = 0;
@@ -23562,13 +23958,11 @@ function signOff(context, ink) {
     const flush = () => {
       if (pending.length === 0) return;
       nodes.push(
-        textAt("contracapa-texto", pending.join(" "), {
-          x: pendingX,
+        capitalsAt(
+          pendingX,
           capTop,
-          size: SIGN_OFF.size,
-          weight: LIGHT,
-          color: ink("body-ink")
-        })
+          piece("contracapa-texto", pending.join(" "), LIGHT, ink("body-ink"))
+        )
       );
       pending = [];
     };
@@ -23577,22 +23971,21 @@ function signOff(context, ink) {
       if (word.boxed) {
         flush();
         nodes.push(
-          rect({
-            name: "contracapa-caixa",
-            size: {
-              w: width,
-              h: SIGN_OFF.box.over + capHeight + SIGN_OFF.box.under
-            },
-            fill: solid(ink("ink")),
-            transform: { x, y: capTop - SIGN_OFF.box.over }
-          }),
-          textAt("contracapa-destaque", word.words, {
-            x: x + SIGN_OFF.box.padX,
+          at(
+            x,
+            capTop - SIGN_OFF.box.over,
+            shape(
+              { w: width, h: SIGN_OFF.box.over + capHeight + SIGN_OFF.box.under },
+              solid(ink("ink")),
+              {},
+              { name: "contracapa-caixa" }
+            )
+          ),
+          capitalsAt(
+            x + SIGN_OFF.box.padX,
             capTop,
-            size: SIGN_OFF.size,
-            weight: BLACK,
-            color: ink("on-ink")
-          })
+            piece("contracapa-destaque", word.words, BLACK, ink("on-ink"))
+          )
         );
       } else {
         if (pending.length === 0) pendingX = x;
@@ -23604,7 +23997,7 @@ function signOff(context, ink) {
   }
   return nodes;
 }
-function wordsOfRich(written) {
+function wordsOf(written) {
   const words = [];
   for (const line of written) {
     const runs = runsOf(
@@ -23628,11 +24021,6 @@ function wordsOfRich(written) {
     }
   }
   return words;
-}
-function wordsOfMarkdown(source) {
-  return source.split(/(\*\*[^*]+\*\*)/).flatMap(
-    (piece) => piece.startsWith("**") ? [{ words: piece.slice(2, -2), boxed: true }] : piece.split(/\s+/).filter((part) => part !== "").map((part) => ({ words: part, boxed: false }))
-  );
 }
 var EXAM_LABEL = "concurso";
 function readAreaSlide(context) {
@@ -23692,8 +24080,8 @@ function areaSlide(context, ink, lift) {
     nodes.push(...singleExam(context, first, room, ink, lift));
     return nodes;
   }
-  const rule = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
-  nodes.push(examRows(context, [first, second], rule, CONTENT_BOTTOM - lift, ink));
+  const middle = Math.round(Math.max(room.centre, room.top + ROW.pitch / 2));
+  nodes.push(examRows(context, [first, second], middle, CONTENT_BOTTOM - lift, ink));
   if (rest.length > 0) {
     context.report({
       code: "W_TEMPLATE_OVERFLOW",
@@ -23703,47 +24091,42 @@ function areaSlide(context, ink, lift) {
   return nodes;
 }
 function areaTitle(context, words, ink) {
-  const placed = {
-    x: CENTRE_X - AREA_TITLE.width / 2,
-    size: AREA_TITLE.size,
-    lineHeight: AREA_TITLE.lineHeight,
-    width: AREA_TITLE.width,
-    weight: MEDIUM,
-    color: ink("ink"),
-    align: "center"
-  };
-  const draft = textAt("area", words, { ...placed, capTop: 0 });
-  const count = measureText(context, draft, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
+  const set2 = capitals(
+    "area",
+    plainRuns(words, { font: FACE2, size: AREA_TITLE.size, weight: MEDIUM, color: ink("ink") }),
+    {
+      size: AREA_TITLE.size,
+      lineHeight: AREA_TITLE.lineHeight,
+      width: AREA_TITLE.width,
+      align: "center"
+    }
+  );
+  const count = laidOut(context, set2, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
   const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
-  return { node: textAt("area", words, { ...placed, capTop: AREA_TITLE.capTop }), baseline };
+  return {
+    node: capitalsAt(CENTRE_X - AREA_TITLE.width / 2, AREA_TITLE.capTop, set2),
+    baseline
+  };
 }
-function nameText(name, placed, ink) {
-  const base2 = { font: FACE2, size: placed.size, weight: LIGHT, color: ink("body-ink") };
-  const runs = [run("Concurso", base2)];
-  if (name !== "") {
-    runs.push(lineBreak(), run(name, { ...base2, weight: MEDIUM, color: ink("ink") }));
-  }
-  return textRuns("concurso", runs, { ...placed, align: "center" });
+function nameText(name, set2, ink) {
+  const base2 = { font: FACE2, size: set2.size, weight: LIGHT, color: ink("body-ink") };
+  const [first, ...others] = plainRuns("Concurso", base2);
+  const named = name === "" ? [] : [lineBreak(), ...plainRuns(name, { ...base2, weight: MEDIUM, color: ink("ink") })];
+  return capitals("concurso", [first, ...others, ...named], { ...set2, align: "center" });
 }
 function factRuns(facts, size, ink) {
   const body = { font: FACE2, size, weight: LIGHT, color: ink("body-ink") };
-  const labelStyle = { ...body, weight: MEDIUM, color: ink("ink") };
-  return facts.flatMap((line, index) => {
-    const { label, text: rest } = labelOf(line);
-    const value = plain(rest).replace(/^\s+/, "");
-    return [
-      ...index > 0 ? [lineBreak()] : [],
-      ...label === void 0 ? [] : [run(`${plain(label).trim()} `, labelStyle)],
-      run(label === void 0 ? plain(line).trim() : value, body)
-    ];
+  return labelValueRuns(facts.map(plain), {
+    label: { ...body, weight: MEDIUM, color: ink("ink") },
+    value: body
   });
 }
 var NAME_LEFT = ROW.name.centre - ROW.name.width / 2;
-function examRows(context, exams, rule, bottom, ink) {
+function examRows(context, exams, middle, bottom, ink) {
   const [upper, lower] = exams.map((exam) => examCells(context, exam, ink));
   const gap = (ROW.pitch - (upper.height + lower.height) / 2) / 2;
-  const top = rule - ROW.pitch / 2 - upper.height / 2;
+  const top = middle - ROW.pitch / 2 - upper.height / 2;
   const ruleBand = top + upper.height + gap;
   const layout = {
     columns: [
@@ -23756,6 +24139,12 @@ function examRows(context, exams, rule, bottom, ink) {
     minRowHeight: 0,
     names: { table: "exams", row: "exam" }
   };
+  const divider = rule(
+    ROW.rule.w,
+    solid(ink("ink")),
+    { thickness: ROW.rule.h },
+    { name: "divisoria" }
+  );
   const rows = [
     upper.row,
     {
@@ -23763,79 +24152,54 @@ function examRows(context, exams, rule, bottom, ink) {
       span: true,
       cells: [
         {
-          draw: (width) => block(
-            width,
-            0,
-            rect({
-              name: "divisoria",
-              size: { w: ROW.rule.w, h: ROW.rule.h },
-              fill: solid(ink("ink")),
-              transform: { x: ROW.rule.x - NAME_LEFT, y: rule - ruleBand }
-            })
-          )
+          draw: (width) => block(width, 0, at(ROW.rule.x - NAME_LEFT, middle - ruleBand, divider))
         }
       ]
     },
     lower.row
   ];
   const drawn = table(layout, rows, ROW.facts.x + ROW.facts.width - NAME_LEFT);
-  reportOverflow(context.report, top + upper.height, rule - ROW.ruleClearance);
+  reportOverflow(context.report, top + upper.height, middle - ROW.ruleClearance);
   reportOverflow(context.report, top + drawn.height, bottom);
   return at(NAME_LEFT, top, drawn);
 }
 function examCells(context, exam, ink) {
   const name = ROW.name;
-  const namePlaced = {
-    x: NAME_LEFT,
-    size: name.size,
-    lineHeight: name.lineHeight,
-    width: name.width
-  };
-  const nameDraft = nameText(exam.name, { ...namePlaced, capTop: 0 }, ink);
-  const nameLines = measureText(
-    context,
-    nameDraft,
-    ["Concurso", exam.name],
-    name.size,
-    name.width
-  ).lines;
+  const nameSet = nameText(
+    exam.name,
+    { size: name.size, lineHeight: name.lineHeight, width: name.width },
+    ink
+  );
+  const nameLines = laidOut(context, nameSet, ["Concurso", exam.name], name.size, name.width).lines;
   const nameHeight = (nameLines - 1) * name.size * name.lineHeight + name.size * CAP_HEIGHT;
   const crestHeight = exam.crest === void 0 ? 0 : ROW.crest.h + name.gap;
   const columnHeight = crestHeight + nameHeight;
   const facts = ROW.facts;
-  const runs = factRuns(exam.facts, facts.size, ink);
-  const factsPlaced = {
-    x: facts.x,
+  const runs = atLeastOne(factRuns(exam.facts, facts.size, ink));
+  const factsSet = runs === void 0 ? void 0 : capitals("fatos", runs, {
     size: facts.size,
     lineHeight: facts.lineHeight,
     width: facts.width
-  };
-  const factsDraft = textRuns("fatos", runs, { ...factsPlaced, capTop: 0 });
-  const factLines = measureText(
-    context,
-    factsDraft,
-    exam.facts.map(plain),
-    facts.size,
-    facts.width
-  ).lines;
+  });
+  const factLines = factsSet === void 0 ? 1 : laidOut(context, factsSet, exam.facts.map(plain), facts.size, facts.width).lines;
   const factsHeight = (factLines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
-  const column = [];
-  if (exam.crest !== void 0) {
-    column.push(crest(exam.crest, { x: ROW.crest.x - NAME_LEFT, y: 0 }, ROW.crest));
-  }
-  column.push(nameText(exam.name, { ...namePlaced, x: 0, capTop: crestHeight }, ink));
+  const column = stackIn({ width: name.width, height: Infinity }, [
+    ...exam.crest === void 0 ? [] : [
+      block(
+        name.width,
+        ROW.crest.h,
+        at(ROW.crest.x - NAME_LEFT, 0, crest(exam.crest, ROW.crest))
+      )
+    ],
+    { item: fromCapitals(nameSet, name.width, nameHeight), gapAbove: name.gap }
+  ]);
   return {
     row: {
       kind: "exam",
       cells: [
-        { draw: (width) => block(width, columnHeight, group({ children: column })) },
-        // An exam with no facts draws none, and its facts' height still counts, as it always did.
+        { draw: (width) => block(width, columnHeight, column.draft) },
         {
-          draw: (width) => block(
-            width,
-            factsHeight,
-            runs.length > 0 ? textRuns("fatos", runs, { ...factsPlaced, x: 0, capTop: 0 }) : group({ children: [] })
-          )
+          draw: (width) => factsSet === void 0 ? block(width, factsHeight, stackIn({ width, height: Infinity }, []).draft) : fromCapitals(factsSet, width, factsHeight)
         }
       ]
     },
@@ -23844,109 +24208,80 @@ function examCells(context, exam, ink) {
 }
 function singleExam(context, exam, room, ink, lift) {
   const name = SINGLE.name;
-  const namePlaced = {
-    x: CENTRE_X - name.width / 2,
-    size: name.size,
-    lineHeight: name.lineHeight,
-    width: name.width
-  };
-  const nameDraft = nameText(exam.name, { ...namePlaced, capTop: 0 }, ink);
-  const nameLines = measureText(
-    context,
-    nameDraft,
-    ["Concurso", exam.name],
-    name.size,
-    name.width
-  ).lines;
+  const nameSet = nameText(
+    exam.name,
+    { size: name.size, lineHeight: name.lineHeight, width: name.width },
+    ink
+  );
+  const nameLines = laidOut(context, nameSet, ["Concurso", exam.name], name.size, name.width).lines;
   const nameHeight = (nameLines - 1) * name.size * name.lineHeight + name.size * CAP_HEIGHT;
   const facts = SINGLE.facts;
-  const runs = factRuns(exam.facts, facts.size, ink);
-  const factsDraft = textRuns("fatos", runs, {
-    x: 0,
-    capTop: 0,
+  const runs = atLeastOne(factRuns(exam.facts, facts.size, ink));
+  const factsSet = runs === void 0 ? void 0 : capitals("fatos", runs, {
     size: facts.size,
     lineHeight: facts.lineHeight,
     width: facts.width
   });
-  const measured = measureText(context, factsDraft, exam.facts.map(plain), facts.size, facts.width);
-  const factsHeight = runs.length === 0 ? 0 : (measured.lines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
+  const laid = factsSet === void 0 ? void 0 : laidOut(context, factsSet, exam.facts.map(plain), facts.size, facts.width);
+  const factsHeight = laid === void 0 ? 0 : (laid.lines - 1) * facts.size * facts.lineHeight + facts.size * CAP_HEIGHT;
   const crestHeight = exam.crest === void 0 ? 0 : SINGLE.crest.h + name.gap;
-  const factsGap = runs.length === 0 ? 0 : SINGLE.factsGap;
+  const factsGap = factsSet === void 0 ? 0 : SINGLE.factsGap;
   const total = crestHeight + nameHeight + factsGap + factsHeight;
   const top = Math.max(room.top, room.centre - total / 2);
   const nodes = [];
   if (exam.crest !== void 0) {
-    nodes.push(crest(exam.crest, { x: CENTRE_X - SINGLE.crest.w / 2, y: top }, SINGLE.crest));
+    nodes.push(at(CENTRE_X - SINGLE.crest.w / 2, top, crest(exam.crest, SINGLE.crest)));
   }
   const nameTop = top + crestHeight;
-  nodes.push(nameText(exam.name, { ...namePlaced, capTop: nameTop }, ink));
-  if (runs.length > 0) {
-    const width = Math.min(facts.width, measured.width);
+  nodes.push(capitalsAt(CENTRE_X - name.width / 2, nameTop, nameSet));
+  if (factsSet !== void 0 && laid !== void 0) {
+    const width = Math.min(facts.width, laid.width);
     const factsTop = nameTop + nameHeight + factsGap;
-    nodes.push(
-      textRuns("fatos", runs, {
-        x: CENTRE_X - width / 2,
-        capTop: factsTop,
-        size: facts.size,
-        lineHeight: facts.lineHeight,
-        width: facts.width
-      })
-    );
+    nodes.push(capitalsAt(CENTRE_X - width / 2, factsTop, factsSet));
     reportOverflow(context.report, factsTop + factsHeight, CONTENT_BOTTOM - lift);
   }
   return nodes;
 }
-function crest(asset, origin, box) {
-  const margin = (box.h - box.drawn) / 2;
-  return image({
-    name: "brasao",
+function crest(asset, box) {
+  const held = box.w / box.drawn;
+  const picture = barePicture(
     asset,
-    size: { w: box.w, h: box.drawn },
-    fit: "contain",
-    transform: { x: origin.x, y: origin.y + margin }
-  });
-}
-function arrow(color2) {
-  const { w, h, shaft, head } = ARROW;
-  const neck = w - head;
-  const d = `M0 ${shaft.top}H${neck}V0L${w} ${h / 2}L${neck} ${h}V${shaft.top + shaft.h}H0Z`;
-  return vector({
-    name: "seta",
-    geometry: { kind: "path", d, fillRule: "nonzero" },
-    size: { w, h },
-    fill: solid(color2),
-    transform: { x: ARROW.x, y: ARROW.y }
-  });
-}
-function textAt(name, words, placed) {
-  const style2 = { font: FACE2, size: placed.size, weight: placed.weight, color: placed.color };
-  const [first = "", ...others] = words.split("\n");
-  return textRuns(
-    name,
-    [run(first, style2), ...others.flatMap((line) => [lineBreak(), run(line, style2)])],
-    placed
+    { width: box.w, height: box.drawn },
+    { fit: "contain", widest: held, tallest: held },
+    { name: "brasao" }
   );
+  return block(box.w, box.h, at(0, (box.h - box.drawn) / 2, picture));
 }
-function textRuns(name, runs, placed) {
-  const lineHeight = placed.lineHeight ?? 1;
-  const [head, ...tail] = runs;
-  const empty = run("", { font: FACE2, size: placed.size, weight: LIGHT, color: "#000000" });
-  return text({
-    name,
-    runs: [head ?? empty, ...tail],
-    ...placed.width === void 0 ? {} : { box: { w: placed.width } },
-    align: placed.align ?? "left",
-    lineHeight,
-    letterSpacing: placed.letterSpacing ?? 0,
+function capitals(name, runs, set2) {
+  return capText(
+    runs,
+    { width: set2.width ?? Infinity, height: Infinity },
+    {
+      size: set2.size,
+      lineHeight: set2.lineHeight ?? 1,
+      letterSpacing: set2.letterSpacing ?? 0,
+      align: set2.align ?? "left"
+    },
     // Never cut at the box: at a line height of 1 an accented capital on the first line
     // (the Á of MONGAGUÁ) rises above the line's box, and a clipped box drops the accent.
-    overflow: "grow",
-    transform: { x: placed.x, y: placed.capTop - capOffset(placed.size, lineHeight) }
-  });
+    { name, text: { overflow: "grow" } }
+  );
 }
-function measureText(context, node2, written, size, width) {
-  const measured = node2.kind === "text" ? context.measure(node2) : void 0;
-  if (measured !== void 0) return { lines: Math.max(1, measured.lines), width: measured.width };
+function capitalsAt(x, capTop, set2) {
+  return at(x, capTop - anchorOf(set2).capTop, set2);
+}
+function fromCapitals(set2, width, height) {
+  return block(width, height, capitalsAt(0, 0, set2));
+}
+function measured(context, set2) {
+  return set2.draft.kind === "text" ? context.measure(set2.draft) : void 0;
+}
+function laidOut(context, set2, written, size, width) {
+  const found = measured(context, set2);
+  if (found !== void 0) return { lines: Math.max(1, found.lines), width: found.width };
+  return estimated(written, size, width);
+}
+function estimated(written, size, width) {
   const perLine = Math.max(1, Math.floor(width / (size * ESTIMATED_ADVANCE)));
   let count = 0;
   let widest = 0;
@@ -23956,30 +24291,6 @@ function measureText(context, node2, written, size, width) {
     widest = Math.max(widest, Math.min(width, characters * size * ESTIMATED_ADVANCE));
   }
   return { lines: Math.max(1, count), width: widest };
-}
-function advance(context, words, weight, size) {
-  const draft = textAt("medida", words === " " ? "a a" : words, {
-    x: 0,
-    capTop: 0,
-    size,
-    weight,
-    color: "#000000"
-  });
-  const measured = context.measure(draft);
-  if (measured === void 0) return [...words].length * size * ESTIMATED_ADVANCE;
-  if (words !== " ") return measured.width;
-  const single = context.measure(
-    textAt("medida", "aa", { x: 0, capTop: 0, size, weight, color: "#000000" })
-  );
-  return single === void 0 ? size * 0.25 : measured.width - single.width;
-}
-function slideRichLines(context) {
-  const value = context.slots["lamina"]?.value;
-  if (value?.kind !== "rich-text") return [];
-  return lines(value.text).filter((line) => plain(line).trim() !== "");
-}
-function slidePlainLines(context) {
-  return slideRichLines(context).map((line) => plain(line).trim());
 }
 
 // src/index.ts
