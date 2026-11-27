@@ -7,7 +7,9 @@ import { compileExample, manifest } from './compile.js';
 import type { SuppliedValues } from '@tyto/core';
 
 /**
- * What a configuration may change in `concursos-abertos-ec` (Tyto ADR 0153): each declared
+ * What a configuration may change in `concursos-abertos-ec` (Tyto ADR 0153), the colours and
+ * the highlights (`destaque`, `destaque-2`, `destaque-3`; what each paints is in
+ * `highlights.test.ts`): each declared
  * default pinned to the constant the code falls back to, so a template nobody configures draws
  * the same bytes, and a value set here found in the HTML.
  */

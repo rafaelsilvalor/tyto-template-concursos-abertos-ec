@@ -5098,7 +5098,7 @@ function isRecursive(inst, stack2, resolve) {
     }
     return answer;
   };
-  const merge2 = (answer) => {
+  const merge3 = (answer) => {
     if (answer > result)
       result = answer;
   };
@@ -5107,7 +5107,7 @@ function isRecursive(inst, stack2, resolve) {
   switch (kind) {
     case "object": {
       const raw = rawShape(def);
-      merge2(raw ? shape2(raw, true) : ASSUMED);
+      merge3(raw ? shape2(raw, true) : ASSUMED);
       check2(def.catchall);
       break;
     }
@@ -5157,7 +5157,7 @@ function isRecursive(inst, stack2, resolve) {
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
       const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
-      merge2(inner ? isRecursive(inner, stack2, false) : ASSUMED);
+      merge3(inner ? isRecursive(inner, stack2, false) : ASSUMED);
       break;
     }
     // a leaf by choice: `parts` are regex fragments, not data positions
@@ -22654,6 +22654,52 @@ function plainRuns(words, style2) {
   const [first = "", ...others] = words.split("\n");
   return [run(first, style2), ...others.flatMap((line) => [lineBreak(), run(line, style2)])];
 }
+var HIGHLIGHT_WEIGHT = 700;
+function mergeFamilies(base2, over) {
+  if (over === void 0) return base2;
+  const merged = { ...base2 };
+  for (const [key, family] of Object.entries(over)) {
+    const previous = merged[key];
+    const like = family.like ?? previous?.like;
+    merged[key] = {
+      ...like === void 0 ? {} : { like },
+      values: { ...previous?.values, ...family.values }
+    };
+  }
+  return merged;
+}
+function merge2(base2, over) {
+  const marks = mergeFamilies(base2.marks, over.marks);
+  return {
+    bold: { ...base2.bold, ...over.bold },
+    italic: { ...base2.italic, ...over.italic },
+    ...marks === void 0 ? {} : { marks }
+  };
+}
+function markStyle(spec, key, value) {
+  const family = spec.marks?.[key];
+  const named = family?.values[value];
+  if (family === void 0 || named === void 0) return void 0;
+  switch (family.like) {
+    case "bold":
+      return { weight: HIGHLIGHT_WEIGHT, ...spec.bold, ...named };
+    case "italic":
+      return { ...spec.italic, ...named, style: "italic" };
+    default:
+      return named;
+  }
+}
+function highlights(spec) {
+  return {
+    spec,
+    options: {
+      bold: { weight: HIGHLIGHT_WEIGHT, ...spec.bold },
+      italic: spec.italic ?? {},
+      mark: (key, value) => markStyle(spec, key, value)
+    },
+    with: (override) => highlights(merge2(spec, override))
+  };
+}
 function richTextOfPlain(source) {
   const inlines = [];
   let literalStart = 0;
@@ -23181,6 +23227,25 @@ var FITTED_COLUMN_PARAMETERS = {
     description: "The most letter spacing, in em, a text may take or give for the same."
   }
 };
+function roleOf(context, spec) {
+  const marked = (adjustments) => spec.roles.filter((role) => adjustments[role] === true);
+  const own2 = marked(context.adjustments);
+  const [first] = own2;
+  if (first !== void 0) return { role: first, ...own2.length > 1 ? { conflict: own2 } : {} };
+  const continuation = spec.continuation;
+  if (continuation === void 0 || context.adjustments[continuation.flag] !== true) {
+    return { role: spec.default };
+  }
+  const before = context.artworks?.slice(0, context.artwork.index).reverse() ?? [];
+  for (const { adjustments } of before) {
+    const [role] = marked(adjustments);
+    if (role !== void 0) {
+      return { role: continuation.carries.includes(role) ? role : spec.default };
+    }
+    if (adjustments[continuation.flag] !== true) return { role: spec.default };
+  }
+  return { role: spec.default };
+}
 var LABEL_VALUE_PARAMETERS = {
   unlabelled: {
     kind: "choice",
@@ -23730,7 +23795,18 @@ var COLOR_DEFAULTS = {
   /** The cover's last line and the sign-off's boxed word. */
   "on-ink": "#ffffff",
   /** The arrow to the next slide. */
-  "arrow-ink": "#7228b1"
+  "arrow-ink": "#7228b1",
+  /**
+   * The highlight, named in the brief writer's language because a brief's frontmatter sets it
+   * (Tyto ADR 0226): `**…**` in a fact's value and in the area's title. Its default is `ink`'s.
+   */
+  destaque: "#460292",
+  /**
+   * A second and a third highlight, reached only by a colour mark in the area's title,
+   * `{cor:destaque-2}…{/}`. A declared colour needs a constant default, so theirs is `ink`'s too.
+   */
+  "destaque-2": "#460292",
+  "destaque-3": "#460292"
 };
 var FACE2 = { family: "CircularXX", source: "system" };
 var LIGHT = 300;
@@ -23815,7 +23891,8 @@ var build = (context) => {
   const page = sealed(context.size, sealOf(context));
   const lift = context.size.h - page.size.h;
   const last = context.artwork.index === context.artwork.count - 1;
-  const body = context.adjustments["capa"] ? cover(context, ink) : context.adjustments["contracapa"] ? signOff(context, ink) : areaSlide(context, ink, lift);
+  const { role } = roleOf(context, ROLES);
+  const body = role === "capa" ? cover(context, ink) : role === "contracapa" ? signOff(context, ink) : areaSlide(context, ink, lift);
   return frame({
     format: context.format,
     size: context.size,
@@ -23833,6 +23910,7 @@ var build = (context) => {
     ]
   });
 };
+var ROLES = { roles: ["capa", "contracapa"], default: "area" };
 function footer(context, page, ink, last) {
   const line = signatureLine(
     signatureOf(context.brand),
@@ -24026,6 +24104,7 @@ var EXAM_LABEL = "concurso";
 function readAreaSlide(context) {
   const slide = context.slots["lamina"];
   let title;
+  let titleLine;
   const exams = [];
   let pendingCrest;
   const addLines = (written) => {
@@ -24039,6 +24118,7 @@ function readAreaSlide(context) {
         pendingCrest = void 0;
       } else if (label === void 0 && exams.length === 0 && title === void 0) {
         title = words;
+        titleLine = line;
       } else {
         const current = exams[exams.length - 1];
         if (current === void 0) {
@@ -24066,12 +24146,12 @@ function readAreaSlide(context) {
     const lastExam = exams[exams.length - 1];
     if (lastExam !== void 0 && lastExam.crest === void 0) lastExam.crest = pendingCrest;
   }
-  return { title, exams };
+  return { title, titleLine, exams };
 }
 function areaSlide(context, ink, lift) {
   const slide = readAreaSlide(context);
   const nodes = [];
-  const title = slide.title === void 0 ? void 0 : areaTitle(context, slide.title, ink);
+  const title = slide.title === void 0 ? void 0 : areaTitle(context, slide.title, slide.titleLine, ink);
   if (title !== void 0) nodes.push(title.node);
   const room = contentRoom(title?.baseline, lift);
   const [first, second, ...rest] = slide.exams;
@@ -24090,17 +24170,16 @@ function areaSlide(context, ink, lift) {
   }
   return nodes;
 }
-function areaTitle(context, words, ink) {
-  const set2 = capitals(
-    "area",
-    plainRuns(words, { font: FACE2, size: AREA_TITLE.size, weight: MEDIUM, color: ink("ink") }),
-    {
-      size: AREA_TITLE.size,
-      lineHeight: AREA_TITLE.lineHeight,
-      width: AREA_TITLE.width,
-      align: "center"
-    }
-  );
+function areaTitle(context, words, written, ink) {
+  const style2 = { font: FACE2, size: AREA_TITLE.size, weight: MEDIUM, color: ink("ink") };
+  const drawn = plainRuns(words, style2);
+  const painted = written === void 0 ? void 0 : atLeastOne(paintedLike(drawn, runsOf(written, style2, highlightsOf(ink).title.options)));
+  const set2 = capitals("area", painted ?? drawn, {
+    size: AREA_TITLE.size,
+    lineHeight: AREA_TITLE.lineHeight,
+    width: AREA_TITLE.width,
+    align: "center"
+  });
   const count = laidOut(context, set2, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
   const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
@@ -24117,9 +24196,15 @@ function nameText(name, set2, ink) {
 }
 function factRuns(facts, size, ink) {
   const body = { font: FACE2, size, weight: LIGHT, color: ink("body-ink") };
-  return labelValueRuns(facts.map(plain), {
-    label: { ...body, weight: MEDIUM, color: ink("ink") },
-    value: body
+  const styles = { label: { ...body, weight: MEDIUM, color: ink("ink") }, value: body };
+  const marks = highlightsOf(ink).facts;
+  const VALUE = 1;
+  return facts.flatMap((line, index) => {
+    const drawn = labelValueRuns([plain(line)], styles);
+    return [
+      ...index > 0 ? [lineBreak()] : [],
+      ...drawn[VALUE] === void 0 ? drawn : paintedLike(drawn, runsOf(line, body, marks.options), VALUE)
+    ];
   });
 }
 var NAME_LEFT = ROW.name.centre - ROW.name.width / 2;
@@ -24251,6 +24336,40 @@ function crest(asset, box) {
     { name: "brasao" }
   );
   return block(box.w, box.h, at(0, (box.h - box.drawn) / 2, picture));
+}
+var COLOR_MARK = "cor";
+var HIGHLIGHT_NAMES = ["destaque", "destaque-2", "destaque-3"];
+function highlightsOf(ink) {
+  const facts = highlights({ bold: { weight: BLACK, color: ink("destaque") } });
+  const values = Object.fromEntries(HIGHLIGHT_NAMES.map((name) => [name, { color: ink(name) }]));
+  return { facts, title: facts.with({ marks: { [COLOR_MARK]: { like: "plain", values } } }) };
+}
+var isBlank = (glyph) => glyph !== void 0 && /\s/.test(glyph);
+var sameLook = (one, other) => one.weight === other.weight && JSON.stringify(one.color) === JSON.stringify(other.color);
+function paintedLike(drawn, written, from = 0) {
+  const source = written.flatMap(
+    (span) => span.kind === "text" ? [...span.text].map((glyph) => ({ glyph, span })) : []
+  );
+  let next = 0;
+  return drawn.flatMap((given, index) => {
+    if (given.kind !== "text") return [given];
+    const pieces = [];
+    for (const glyph of given.text) {
+      const blank = isBlank(glyph);
+      if (!blank) while (isBlank(source[next]?.glyph)) next += 1;
+      const found = source[next];
+      const same = found !== void 0 && (blank ? isBlank(found.glyph) : found.glyph === glyph);
+      if (same) next += 1;
+      const last = pieces[pieces.length - 1];
+      const like = same ? found.span : last?.like ?? given;
+      if (last !== void 0 && sameLook(last.like, like)) last.text += glyph;
+      else pieces.push({ text: glyph, like });
+    }
+    if (index < from) return [given];
+    return pieces.map(
+      ({ text: text2, like }) => sameLook(like, given) ? { ...given, text: text2 } : { ...given, text: text2, color: like.color, weight: like.weight }
+    );
+  });
 }
 function capitals(name, runs, set2) {
   return capText(

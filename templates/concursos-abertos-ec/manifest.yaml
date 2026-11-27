@@ -31,8 +31,8 @@ slots:
 adjustments:
   capa: { type: flag, applies: [lamina] }
   contracapa: { type: flag, applies: [lamina] }
-# What a configuration may change (Tyto ADR 0153): the colours. Each default is the reference
-# art's, and `tests/values.test.ts` pins them equal to the ones the code falls back to.
+# What a configuration may change (Tyto ADR 0153): the colours and the highlights. Each default
+# is the reference art's, and `tests/values.test.ts` pins them equal to the ones the code falls back to.
 values:
   paper: { type: color, default: '#ffffff' }
   # Titles, labels, the exams' names, the rule between two exams, the cover's band, the
@@ -44,3 +44,11 @@ values:
   on-ink: { type: color, default: '#ffffff' }
   # The arrow to the next slide.
   arrow-ink: { type: color, default: '#7228b1' }
+  # The highlight: `**…**` in a fact's value and in an area's title, drawn in Black. Set it in
+  # the brief's frontmatter: `destaque: '#e30613'`. Its default is `ink`'s. The sign-off's box
+  # is not a highlight: it stays on `ink`.
+  destaque: { type: color, default: '#460292' }
+  # A second and a third highlight, reached only by a colour mark in an area's title:
+  # `{cor:destaque-2}Policial{/}`. Their default is `ink`'s too, so set the one you mark.
+  destaque-2: { type: color, default: '#460292' }
+  destaque-3: { type: color, default: '#460292' }

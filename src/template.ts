@@ -9,8 +9,13 @@
  *   rule between the rows. With one, crest, name and facts are stacked, larger, in the middle;
  * - the sign-off, `::lamina {contracapa}`: one paragraph whose `**word**` is set white on a box.
  *
+ * A slide's kind is its role, read by the kit: `capa` before `contracapa` when a slide writes
+ * both, an area slide when it writes neither.
+ *
  * An exam starts at a `Concurso: name` line; every `Label: value` line under it is one of its
- * facts. Its crest is an `::brasao ./file.png` written before that line, and it is optional: an
+ * facts. `**…**` is the highlight, in a fact's value and in the area's title, and a `{cor:…}`
+ * mark paints a span of the title; the cover, an exam's name and the sign-off take none (the
+ * sign-off's `**word**` is its boxed word). Its crest is an `::brasao ./file.png` written before that line, and it is optional: an
  * exam without one draws its name where the crest would sit (the maintainer, 2026-11-05).
  *
  * Every position is the reference art's (the maintainer's PSD), in the slide's pixels: a text
@@ -30,6 +35,7 @@ import {
   block,
   capText,
   carouselFooter,
+  highlights,
   labelOf,
   labelValueRuns,
   lines,
@@ -37,6 +43,7 @@ import {
   plainRuns,
   reportOverflow,
   richTextOfPlain,
+  roleOf,
   rule,
   sealed,
   shape,
@@ -53,9 +60,10 @@ import type {
   TemplateBuild,
   TemplateContext,
   TextRun,
+  TextSpan,
 } from '@tyto/core';
 import type { NodeDraft, NonEmpty } from '@tyto/core/template';
-import type { Area, Block, TableRow, TableStyle } from '@tyto/template-kit';
+import type { Area, Block, Highlights, TableRow, TableStyle } from '@tyto/template-kit';
 
 /* ------------------------------------------------------------------------- the tokens -- */
 
@@ -70,6 +78,17 @@ export const COLOR_DEFAULTS = {
   'on-ink': '#ffffff',
   /** The arrow to the next slide. */
   'arrow-ink': '#7228b1',
+  /**
+   * The highlight, named in the brief writer's language because a brief's frontmatter sets it
+   * (Tyto ADR 0226): `**…**` in a fact's value and in the area's title. Its default is `ink`'s.
+   */
+  destaque: '#460292',
+  /**
+   * A second and a third highlight, reached only by a colour mark in the area's title,
+   * `{cor:destaque-2}…{/}`. A declared colour needs a constant default, so theirs is `ink`'s too.
+   */
+  'destaque-2': '#460292',
+  'destaque-3': '#460292',
 } as const;
 
 type ColorName = keyof typeof COLOR_DEFAULTS;
@@ -222,11 +241,13 @@ export const build: TemplateBuild = (context: TemplateContext) => {
   const page = sealed(context.size, sealOf(context));
   const lift = context.size.h - page.size.h;
   const last = context.artwork.index === context.artwork.count - 1;
-  const body = context.adjustments['capa']
-    ? cover(context, ink)
-    : context.adjustments['contracapa']
-      ? signOff(context, ink)
-      : areaSlide(context, ink, lift);
+  const { role } = roleOf(context, ROLES);
+  const body =
+    role === 'capa'
+      ? cover(context, ink)
+      : role === 'contracapa'
+        ? signOff(context, ink)
+        : areaSlide(context, ink, lift);
   return frame({
     format: context.format,
     size: context.size,
@@ -244,6 +265,9 @@ export const build: TemplateBuild = (context: TemplateContext) => {
     ],
   });
 };
+
+/** A slide's roles, the cover first: a slide that writes both flags is the cover. */
+const ROLES = { roles: ['capa', 'contracapa'], default: 'area' } as const;
 
 /**
  * The footer over `page`, the slide less the seal's band: the brand's signature and, on every
@@ -488,6 +512,8 @@ export interface Exam {
 /** An area slide as written: its title, when it has one, and its exams in order. */
 export interface AreaSlide {
   readonly title: string | undefined;
+  /** The title as the brief wrote it, marks and all: its highlights are read from it. */
+  readonly titleLine: RichText | undefined;
   readonly exams: readonly Exam[];
 }
 
@@ -503,6 +529,7 @@ const EXAM_LABEL = 'concurso';
 export function readAreaSlide(context: TemplateContext): AreaSlide {
   const slide = context.slots['lamina'];
   let title: string | undefined;
+  let titleLine: RichText | undefined;
   const exams: { name: string; crest: AssetRef | undefined; facts: RichText[] }[] = [];
   let pendingCrest: AssetRef | undefined;
   const addLines = (written: RichText): void => {
@@ -516,6 +543,7 @@ export function readAreaSlide(context: TemplateContext): AreaSlide {
         pendingCrest = undefined;
       } else if (label === undefined && exams.length === 0 && title === undefined) {
         title = words;
+        titleLine = line;
       } else {
         const current = exams[exams.length - 1];
         if (current === undefined) {
@@ -543,14 +571,15 @@ export function readAreaSlide(context: TemplateContext): AreaSlide {
     const lastExam = exams[exams.length - 1];
     if (lastExam !== undefined && lastExam.crest === undefined) lastExam.crest = pendingCrest;
   }
-  return { title, exams };
+  return { title, titleLine, exams };
 }
 
 /** An area slide: its title, then one exam stacked or two in rows. */
 function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[] {
   const slide = readAreaSlide(context);
   const nodes: NodeDraft[] = [];
-  const title = slide.title === undefined ? undefined : areaTitle(context, slide.title, ink);
+  const title =
+    slide.title === undefined ? undefined : areaTitle(context, slide.title, slide.titleLine, ink);
   if (title !== undefined) nodes.push(title.node);
   const room = contentRoom(title?.baseline, lift);
   const [first, second, ...rest] = slide.exams;
@@ -572,22 +601,29 @@ function areaSlide(context: TemplateContext, ink: Ink, lift: number): NodeDraft[
   return nodes;
 }
 
-/** The area's title, centred, wrapped, growing down from the reference's capitals; and its last baseline. */
+/**
+ * The area's title, centred, wrapped, growing down from the reference's capitals; and its last
+ * baseline. Its words are the trimmed ones it has always drawn, in the look `written` gives
+ * them: `**…**` Black in `destaque`, a `{cor:…}` span in its colour.
+ */
 function areaTitle(
   context: TemplateContext,
   words: string,
+  written: RichText | undefined,
   ink: Ink,
 ): { node: NodeDraft; baseline: number } {
-  const set = capitals(
-    'area',
-    plainRuns(words, { font: FACE, size: AREA_TITLE.size, weight: MEDIUM, color: ink('ink') }),
-    {
-      size: AREA_TITLE.size,
-      lineHeight: AREA_TITLE.lineHeight,
-      width: AREA_TITLE.width,
-      align: 'center',
-    },
-  );
+  const style = { font: FACE, size: AREA_TITLE.size, weight: MEDIUM, color: ink('ink') };
+  const drawn = plainRuns(words, style);
+  const painted =
+    written === undefined
+      ? undefined
+      : atLeastOne(paintedLike(drawn, runsOf(written, style, highlightsOf(ink).title.options)));
+  const set = capitals('area', painted ?? drawn, {
+    size: AREA_TITLE.size,
+    lineHeight: AREA_TITLE.lineHeight,
+    width: AREA_TITLE.width,
+    align: 'center',
+  });
   const count = laidOut(context, set, [words], AREA_TITLE.size, AREA_TITLE.width).lines;
   const pitch = AREA_TITLE.size * AREA_TITLE.lineHeight;
   const baseline = AREA_TITLE.capTop + AREA_TITLE.size * CAP_HEIGHT + (count - 1) * pitch;
@@ -612,12 +648,24 @@ function nameText(
   return capitals('concurso', [first, ...others, ...named], { ...set, align: 'center' });
 }
 
-/** An exam's facts, one per line: the label Medium in the brand's colour, the value Light. */
+/**
+ * An exam's facts, one per line: the label Medium in the brand's colour, the value Light. The
+ * kit splits each line at its label; a value then takes the highlights its line wrote, and a
+ * label, and a line with no label, keep their ink and weight.
+ */
 function factRuns(facts: readonly RichText[], size: number, ink: Ink): TextRun[] {
   const body = { font: FACE, size, weight: LIGHT, color: ink('body-ink') };
-  return labelValueRuns(facts.map(plain), {
-    label: { ...body, weight: MEDIUM, color: ink('ink') },
-    value: body,
+  const styles = { label: { ...body, weight: MEDIUM, color: ink('ink') }, value: body };
+  const marks = highlightsOf(ink).facts;
+  const VALUE = 1;
+  return facts.flatMap((line, index) => {
+    const drawn = labelValueRuns([plain(line)], styles);
+    return [
+      ...(index > 0 ? [lineBreak()] : []),
+      ...(drawn[VALUE] === undefined
+        ? drawn
+        : paintedLike(drawn, runsOf(line, body, marks.options), VALUE)),
+    ];
   });
 }
 
@@ -825,6 +873,69 @@ function crest(
     { name: 'brasao' },
   );
   return block(box.w, box.h, at(0, (box.h - box.drawn) / 2, picture));
+}
+
+/* ---------------------------------------------------------------------- the highlights -- */
+
+/** The mark family that paints a span of the area's title: `{cor:destaque-2}…{/}`. */
+const COLOR_MARK = 'cor';
+/** The colours a `{cor:…}` mark may name: the highlights a brief can set in its frontmatter. */
+const HIGHLIGHT_NAMES = ['destaque', 'destaque-2', 'destaque-3'] as const;
+
+/**
+ * What the brief's highlights look like on an area slide, read by the kit. In a fact's value
+ * and in the area's title `**…**` is Black in `destaque`; in the title a
+ * `{cor:destaque|destaque-2|destaque-3}` span takes its colour and keeps the title's weight. A
+ * name the template does not declare leaves the words as they are, and so does a colour mark in
+ * a fact.
+ */
+function highlightsOf(ink: Ink): { readonly facts: Highlights; readonly title: Highlights } {
+  const facts = highlights({ bold: { weight: BLACK, color: ink('destaque') } });
+  const values = Object.fromEntries(HIGHLIGHT_NAMES.map((name) => [name, { color: ink(name) }]));
+  return { facts, title: facts.with({ marks: { [COLOR_MARK]: { like: 'plain', values } } }) };
+}
+
+const isBlank = (glyph: string | undefined): boolean => glyph !== undefined && /\s/.test(glyph);
+
+const sameLook = (one: TextSpan, other: TextSpan): boolean =>
+  one.weight === other.weight && JSON.stringify(one.color) === JSON.stringify(other.color);
+
+/**
+ * `drawn` in the colour and the weight `written` gives each glyph. The two hold the same glyphs
+ * in the same order and differ only in their blanks: the title is trimmed and the kit sets one
+ * space after a label once the brief's marks are read, so a highlight is found again by walking
+ * both, glyph by glyph. A drawn run before `from` is walked and left whole (a fact's label), and
+ * so is any glyph `written` does not have at that place.
+ *
+ * Pending a kit piece (TYTO-906), as in concursos-abertos: a wrap that takes runs would keep
+ * each word's look itself.
+ */
+function paintedLike(drawn: readonly TextRun[], written: readonly TextRun[], from = 0): TextRun[] {
+  const source = written.flatMap((span) =>
+    span.kind === 'text' ? [...span.text].map((glyph) => ({ glyph, span })) : [],
+  );
+  let next = 0;
+  return drawn.flatMap((given, index): TextRun[] => {
+    if (given.kind !== 'text') return [given];
+    const pieces: { text: string; like: TextSpan }[] = [];
+    for (const glyph of given.text) {
+      const blank = isBlank(glyph);
+      if (!blank) while (isBlank(source[next]?.glyph)) next += 1;
+      const found = source[next];
+      const same = found !== undefined && (blank ? isBlank(found.glyph) : found.glyph === glyph);
+      if (same) next += 1;
+      const last = pieces[pieces.length - 1];
+      const like = same ? found.span : (last?.like ?? given);
+      if (last !== undefined && sameLook(last.like, like)) last.text += glyph;
+      else pieces.push({ text: glyph, like });
+    }
+    if (index < from) return [given];
+    return pieces.map(({ text, like }) =>
+      sameLook(like, given)
+        ? { ...given, text }
+        : { ...given, text, color: like.color, weight: like.weight },
+    );
+  });
 }
 
 /* -------------------------------------------------------------------------- the shared -- */

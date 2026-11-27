@@ -51,6 +51,51 @@ Format: `formats: [grid]` only; there is no story.
      Comente **PALAVRA** e receba o link com todas as vagas abertas.
    ```
 
+## Flags
+
+| Flag         | On       | What it does               |
+| ------------ | -------- | -------------------------- |
+| `capa`       | `lamina` | The slide is the cover.    |
+| `contracapa` | `lamina` | The slide is the sign-off. |
+
+A `::lamina` with neither is an area slide. One slide takes one flag: written together,
+`{capa, contracapa}`, the slide is the cover. There is no other flag and no enum.
+
+## Highlights
+
+`**…**` is the highlight, for something out of the ordinary in the middle of a text. It works
+on an **area slide only**, in a fact's value and in the area's name.
+
+| Value        | Default   | What takes it                                                      |
+| ------------ | --------- | ------------------------------------------------------------------ |
+| `destaque`   | `#460292` | `**…**` in a fact's value and in the area's name, in heavy weight. |
+| `destaque-2` | `#460292` | Only words marked `{cor:destaque-2}…{/}` in the area's name.       |
+| `destaque-3` | `#460292` | Only words marked `{cor:destaque-3}…{/}` in the area's name.       |
+
+- **In a fact's value**, `**…**` comes out heavy in `destaque`: `Vagas: **300** imediatas`.
+  The label keeps its own colour and weight, and so does a line with no label. A `{cor:…}`
+  mark changes nothing in a fact.
+- **In the area's name**, `**…**` is heavy in `destaque`, and `{cor:destaque}`,
+  `{cor:destaque-2}` or `{cor:destaque-3}` change the colour only. A mark the template does
+  not list (`{cor:azul}`) leaves its words as they are.
+- **The cover and an exam's name take no highlight.** On the sign-off `**word**` is the boxed
+  word, as before: white on a box in the brand's colour, which no highlight changes.
+
+Set a highlight's colour in the frontmatter; with none set, all three are the brand's colour,
+so a `**…**` shows by its weight alone.
+
+```brief
+---
+template: concursos-abertos-ec
+formats: [grid]
+destaque-2: '#e30613'
+---
+::lamina
+  Área {cor:destaque-2}Policial{/}
+  Concurso: Órgão Alfa
+  Vagas: **300** imediatas
+```
+
 ## How to split into slides
 
 - **At most two exams per slide.** A third is not drawn and Tyto warns `W_TEMPLATE_OVERFLOW`. One
