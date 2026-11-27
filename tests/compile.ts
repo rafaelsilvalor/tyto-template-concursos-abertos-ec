@@ -5,8 +5,8 @@ import { compileTemplate } from '@tyto/template-kit/testing';
 
 import { build } from '../src/template.js';
 
-import type { AssetRef, AssetResolver, SuppliedValues } from '@tyto/core';
-import type { CompiledTemplate } from '@tyto/template-kit/testing';
+import type { AssetRef, AssetResolver, Diagnostics, SuppliedValues } from '@tyto/core';
+import type { CompileTemplateOptions, CompiledTemplate } from '@tyto/template-kit/testing';
 
 /**
  * The example briefs, compiled the way Tyto compiles them (Tyto ADR 0152), shared by the tests.
@@ -72,4 +72,25 @@ export async function compileExample(
   });
   if (!result.ok) throw new Error(result.error.map((item) => item.message).join('\n'));
   return result.value;
+}
+
+/**
+ * A brief written in a test, compiled the same way: `body` is everything under the frontmatter,
+ * `frontmatter` the lines a test adds to it (a `selo:`). The warnings come back with the result,
+ * for a test that reads what the author is told.
+ */
+export async function compileBrief(
+  body: string,
+  options: Pick<CompileTemplateOptions, 'assets' | 'faces' | 'values'> = {},
+  frontmatter = '',
+): Promise<{ readonly value: CompiledTemplate; readonly diagnostics: Diagnostics }> {
+  const result = await compileTemplate({
+    brief: `---\ntemplate: concursos-abertos-ec\nformats: [grid]\n${frontmatter}---\n${body}`,
+    template,
+    formats,
+    asset: (ref) => `data:image/png;asset,${ref.id}`,
+    ...options,
+  });
+  if (!result.ok) throw new Error(result.error.map((item) => item.message).join('\n'));
+  return { value: result.value, diagnostics: result.diagnostics };
 }
