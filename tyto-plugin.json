@@ -1,7 +1,7 @@
 {
   "name": "concursos-abertos-ec",
   "version": "0.3.0",
-  "engine": ">=0.14",
+  "engine": ">=0.32",
   "contributes": ["template-pack"],
   "permissions": ["font:CircularXX"]
 }
